@@ -1,0 +1,29 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Environment / secrets
+.env
+
+# Cached data (downloaded from the provider; not versioned)
+data/cache/
+*.parquet
+
+# Generated outputs (regenerable). The figures and the final PDF report are
+# committed so they render on GitHub without running the pipeline.
+output/*
+!output/figures/
+!output/expectancy_study.pdf
+*.tmp
+
+# OS / editors
+.DS_Store
+Thumbs.db
+
+# Hook marker
+.claude/.last-stop-signature

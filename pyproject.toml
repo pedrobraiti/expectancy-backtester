@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "expectancy"
+version = "1.0.0"
+description = "A rules-based backtester that measures the mathematical fingerprint of a trading system: expectancy, variance, risk/reward tradeoff and risk of ruin"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Pedro Braiti" }]
+keywords = ["quantitative-finance", "backtesting", "expectancy", "monte-carlo", "risk-of-ruin", "trading"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
