@@ -3,12 +3,13 @@
 Plano vivo do projeto. Tarefas e subtarefas, marcadas conforme concluídas.
 
 ## Em progresso
-- [ ] Publicar repo público no GitHub (pedrobraiti) + push
+<vazio — projeto entregue v1.0>
 
 ## Próximas
-<vazio — projeto entregue>
+<vazio>
 
 ## Concluído
+- [x] Publicar repo público: https://github.com/pedrobraiti/expectancy-backtester
 - [x] README profissional em inglês com resultados reais e figuras embutidas
 - [x] Setup inicial do projeto (.claude/, CLAUDE.md, git, pyproject, venv, requirements)
 - [x] Núcleo do backtester (data → strategy → engine → metrics → montecarlo)

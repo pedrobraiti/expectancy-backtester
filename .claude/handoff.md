@@ -4,38 +4,36 @@
 > de forma relativamente detalhada. É o PRIMEIRO arquivo que a próxima sessão lê.
 > Mantenha-o vivo e específico — detalhado o bastante para retomar sem reconstruir o raciocínio.
 
-**Última atualização:** 2026-06-20 — núcleo + reporting + estudo rodado. Falta README e push.
+**Última atualização:** 2026-06-20 — projeto ENTREGUE (v1.0) e publicado.
 
 ## Onde parei
-Núcleo, testes (30 passando), reporting (terminal + 32 figuras + PDF de 19 páginas) e pipeline
-estão prontos e commitados. O estudo da cesta US+BR rodou de verdade (dados reais do Yahoo,
-cacheados em `data/cache`), gerou `output/study.pkl`, todas as figuras em `output/figures/` e
-`output/expectancy_study.pdf`. Próximo passo é escrever o README profissional em inglês com os
-números reais e depois publicar o repo público no GitHub.
+Projeto completo e publicado: https://github.com/pedrobraiti/expectancy-backtester (público).
+Núcleo, 30 testes, reporting (terminal + 32 figuras + PDF de 19 páginas), pipeline, README
+profissional em inglês e o brief de referência — tudo commitado e no GitHub (branch `master`).
+Não há tarefa pendente.
 
 ## Contexto mental
-Resultados reais (2010–2026, 0,5% risco/trade, MA20×MA50, ATR 1,5/3,0): amostras pequenas
-(37–43 trades cada, TODAS < 100 → aviso de ruído dispara, que é exatamente a lição do brief).
-Expectância troca de sinal entre ativos: QQQ +0,42R (PF 1,83), ITUB4 +0,22R (PF 1,40),
-VALE3 +0,04R (marginal), SPY −0,09R e PETR4 −0,11R (negativos). Narrativa honesta: a estratégia
-de exemplo NÃO tem edge robusto; o valor do projeto é a metodologia (medir expectância sem
-lookahead, com custos, e mostrar variância + risco de ruína). Sanity check da expectância passa
-em todos. Risco de ruína só explode a 5%/trade (SPY 37%, PETR4 38%).
+Backtester de expectância fiel ao `BACKTEST_BRIEF.md`. Estudo real (2010–2026, 0,5% risco/trade,
+MA20×MA50, ATR 1,5/3,0) sobre SPY, QQQ, PETR4.SA, VALE3.SA, ITUB4.SA. Resultado honesto: a
+estratégia de exemplo NÃO tem edge robusto — expectância troca de sinal (QQQ +0,42R, ITUB4 +0,22R,
+VALE3 +0,04R, SPY −0,09R, PETR4 −0,11R) e TODA amostra tem < 100 trades (37–43), então o aviso de
+ruído dispara em todas. O valor entregue é a metodologia: medir sem lookahead, com custos, sizing
+por risco fixo, sanity check da expectância (passa em todos), variância (bootstrap) e risco de ruína
+(explode a 5%/trade). README e PDF contam isso sem spin.
 
 ## Próximo passo concreto
-Escrever `README.md` em inglês: badges, TL;DR honesto, tabela comparativa (extrair do
-`output/study.pkl`), figuras embutidas (`output/figures/*.png`), seção de método (sem lookahead,
-custos, sizing), como reproduzir, estrutura, disclaimer. Espelhar o tom dos outros 2 repos.
+Nenhum pendente. Possíveis evoluções FUTURAS se o usuário pedir: (a) adicionar estratégias novas em
+`strategy/` (registrar em `registry.py`); (b) split in-sample/out-of-sample / walk-forward para
+robustez; (c) análise "pooled" juntando trades de todos os ativos para passar de 100 trades; (d)
+calculadora de lote forex já existe em `sizing.lot_size` mas não é exposta na CLI.
 
 ## Em aberto / armadilhas
-- `yfinance` tem que ser 1.4.1 (0.2.x falha). Já corrigido no requirements.
-- Output no terminal precisa de UTF-8 (`print_report` faz `sys.stdout.reconfigure`).
-- `output/*` é ignorado no git EXCETO `output/figures/` e `output/expectancy_study.pdf`
-  (commitados). `study.pkl`, `data/cache`, `*.parquet` ignorados.
-- Datas: `build_report.py` usa `date.today()` (ok em script normal).
+- `yfinance` TEM que ser 1.4.1 (série 0.2.x falha com YFTzMissingError/JSON vazio). Fixado.
+- Terminal precisa UTF-8 (`print_report` faz `sys.stdout.reconfigure`); rodar com PYTHONIOENCODING=utf-8 ajuda.
+- `output/*` ignorado EXCETO `output/figures/` e `output/expectancy_study.pdf`. `study.pkl`,
+  `data/cache`, `*.parquet`, `Prompt_Claude_Code.txt` ignorados.
 
 ## Como retomar rápido
 - `& ".venv\Scripts\Activate.ps1"`; `pytest -q` (30 testes).
 - Reproduzir: `python scripts/run_study.py` → `python scripts/build_report.py`.
-- Números para o README: `python -c "import pickle; b=pickle.load(open('output/study.pkl','rb'))"`.
-- Publicar: `gh repo create expectancy-backtester --public --source=. --remote=origin --push`.
+- Um ativo: `python main.py --ticker QQQ`.
