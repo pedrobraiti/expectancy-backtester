@@ -44,6 +44,18 @@ class ExpectancyCI:
         return "positive" if self.ci_low > 0 else "negative"
 
 
+def _ci_from_means(values: np.ndarray, means: np.ndarray, confidence: float) -> ExpectancyCI:
+    alpha = 1.0 - confidence
+    return ExpectancyCI(
+        n=values.size,
+        mean_r=float(values.mean()),
+        ci_low=float(np.percentile(means, 100 * alpha / 2)),
+        ci_high=float(np.percentile(means, 100 * (1 - alpha / 2))),
+        prob_positive=float(np.mean(means > 0.0)),
+        confidence=confidence,
+    )
+
+
 def bootstrap_mean_ci(
     values: np.ndarray,
     *,
@@ -51,7 +63,12 @@ def bootstrap_mean_ci(
     seed: int = 42,
     confidence: float = 0.95,
 ) -> ExpectancyCI:
-    """95% bootstrap CI for the mean of `values` (the per-trade R-multiples)."""
+    """95% bootstrap CI for the mean of `values`, resampling trades i.i.d.
+
+    Valid only when the observations are independent. For trades pooled across
+    correlated instruments they are not, so use :func:`cluster_bootstrap_mean_ci`
+    there — this i.i.d. version understates the uncertainty.
+    """
     values = np.asarray(values, dtype=float)
     n = values.size
     if n == 0:
@@ -60,17 +77,39 @@ def bootstrap_mean_ci(
     rng = np.random.default_rng(seed)
     idx = rng.integers(0, n, size=(n_resamples, n))
     means = values[idx].mean(axis=1)
+    return _ci_from_means(values, means, confidence)
 
-    alpha = 1.0 - confidence
-    ci_low = float(np.percentile(means, 100 * alpha / 2))
-    ci_high = float(np.percentile(means, 100 * (1 - alpha / 2)))
-    prob_positive = float(np.mean(means > 0.0))
 
-    return ExpectancyCI(
-        n=n,
-        mean_r=float(values.mean()),
-        ci_low=ci_low,
-        ci_high=ci_high,
-        prob_positive=prob_positive,
-        confidence=confidence,
-    )
+def cluster_bootstrap_mean_ci(
+    values: np.ndarray,
+    cluster_labels,
+    *,
+    n_resamples: int = 10_000,
+    seed: int = 42,
+    confidence: float = 0.95,
+) -> ExpectancyCI:
+    """95% CL bootstrap CI for the mean, resampling whole **clusters** with replacement.
+
+    When observations are correlated *within* a cluster (e.g. trades from the same
+    calendar quarter, where US indices and Brazilian names move together), an
+    i.i.d. bootstrap shreds that correlation and reports a falsely tight interval.
+    Resampling clusters keeps the dependence intact, so the effective sample size
+    drops to roughly the number of clusters and the interval widens to the honest
+    width. The mean statistic is exact: for a draw of clusters it equals
+    ``sum(selected cluster sums) / sum(selected cluster sizes)``.
+    """
+    values = np.asarray(values, dtype=float)
+    labels = np.asarray(cluster_labels)
+    n = values.size
+    if n == 0:
+        return ExpectancyCI(0, 0.0, 0.0, 0.0, 0.5, confidence)
+
+    unique = np.unique(labels)
+    sums = np.array([values[labels == lab].sum() for lab in unique])
+    counts = np.array([np.count_nonzero(labels == lab) for lab in unique])
+    k = unique.size
+
+    rng = np.random.default_rng(seed)
+    idx = rng.integers(0, k, size=(n_resamples, k))
+    means = sums[idx].sum(axis=1) / counts[idx].sum(axis=1)
+    return _ci_from_means(values, means, confidence)

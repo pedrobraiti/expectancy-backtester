@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import numpy as np
 
-from expectancy.analysis import bootstrap_mean_ci, cost_sweep, pool_trades
+from expectancy.analysis import (
+    bootstrap_mean_ci,
+    cluster_bootstrap_mean_ci,
+    cost_sweep,
+    pool_trades,
+)
 from expectancy.config import Config
 from expectancy.engine import BacktestEngine
 from expectancy.strategy import build_strategy
@@ -39,6 +44,50 @@ def test_ci_excludes_zero_for_strong_positive_data():
 def test_empty_ci_is_safe():
     ci = bootstrap_mean_ci(np.array([]), n_resamples=100, seed=1)
     assert ci.n == 0 and not ci.distinguishable_from_zero
+
+
+def test_cluster_bootstrap_is_reproducible():
+    rng = np.random.default_rng(0)
+    values = rng.normal(0.1, 1.0, 120)
+    labels = np.repeat(np.arange(20), 6)
+    a = cluster_bootstrap_mean_ci(values, labels, n_resamples=3000, seed=42)
+    b = cluster_bootstrap_mean_ci(values, labels, n_resamples=3000, seed=42)
+    assert a == b
+    assert a.ci_low <= a.mean_r <= a.ci_high
+
+
+def test_cluster_bootstrap_is_wider_when_within_cluster_correlation_is_high():
+    """If observations inside a cluster are identical (max correlation), the
+    cluster bootstrap must report a wider interval than the i.i.d. one, which
+    wrongly assumes independence."""
+    rng = np.random.default_rng(3)
+    n_clusters, per = 15, 8
+    cluster_means = rng.normal(0.1, 1.0, n_clusters)
+    values = np.repeat(cluster_means, per)              # perfectly correlated within cluster
+    labels = np.repeat(np.arange(n_clusters), per)
+
+    iid = bootstrap_mean_ci(values, n_resamples=4000, seed=7)
+    clustered = cluster_bootstrap_mean_ci(values, labels, n_resamples=4000, seed=7)
+    iid_width = iid.ci_high - iid.ci_low
+    clustered_width = clustered.ci_high - clustered.ci_low
+    assert clustered_width > iid_width * 1.5            # markedly wider, not a rounding effect
+
+
+def test_cluster_bootstrap_matches_iid_when_each_point_is_its_own_cluster():
+    rng = np.random.default_rng(5)
+    values = rng.normal(0.2, 1.0, 80)
+    labels = np.arange(80)                              # one cluster per observation
+    iid = bootstrap_mean_ci(values, n_resamples=6000, seed=11)
+    clustered = cluster_bootstrap_mean_ci(values, labels, n_resamples=6000, seed=11)
+    assert abs((clustered.ci_high - clustered.ci_low) - (iid.ci_high - iid.ci_low)) < 0.1
+
+
+def test_pool_block_ci_is_wider_than_iid(synthetic_price):
+    _, a, b = _two_results(synthetic_price)
+    pooled = pool_trades([a, b], n_resamples=4000, seed=42)
+    # Block CI should never be tighter than the (over-confident) i.i.d. one.
+    assert (pooled.ci_block.ci_high - pooled.ci_block.ci_low) >= (pooled.ci.ci_high - pooled.ci.ci_low) - 1e-9
+    assert pooled.n_blocks > 0
 
 
 def _two_results(synthetic_price):

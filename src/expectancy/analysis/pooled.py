@@ -20,7 +20,11 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from expectancy.analysis.significance import ExpectancyCI, bootstrap_mean_ci
+from expectancy.analysis.significance import (
+    ExpectancyCI,
+    bootstrap_mean_ci,
+    cluster_bootstrap_mean_ci,
+)
 from expectancy.engine.engine import BacktestResult
 
 
@@ -35,7 +39,9 @@ class PooledResult:
     avg_win_r: float
     avg_loss_r: float                # positive magnitude
     breakeven_win_rate: float
-    ci: ExpectancyCI
+    ci: ExpectancyCI                 # i.i.d. bootstrap (optimistic — trades aren't independent)
+    ci_block: ExpectancyCI           # calendar-quarter cluster bootstrap (the honest, wider CI)
+    n_blocks: int                    # number of non-empty calendar quarters (effective sample)
     in_sample_n: int
     out_sample_n: int
     in_sample_expectancy_r: float
@@ -46,7 +52,7 @@ class PooledResult:
         return self.out_sample_expectancy_r > 0
 
 
-def _collect_sorted_r(results: list[BacktestResult]) -> tuple[np.ndarray, dict[str, int]]:
+def _collect_sorted(results: list[BacktestResult]) -> tuple[np.ndarray, list, dict[str, int]]:
     trades = []
     per_ticker: dict[str, int] = {}
     for result in results:
@@ -54,7 +60,8 @@ def _collect_sorted_r(results: list[BacktestResult]) -> tuple[np.ndarray, dict[s
         trades.extend(result.trades)
     trades.sort(key=lambda t: t.exit_date)
     r = np.array([t.r_multiple for t in trades], dtype=float)
-    return r, per_ticker
+    quarters = [f"{t.exit_date.year}Q{(t.exit_date.month - 1) // 3 + 1}" for t in trades]
+    return r, quarters, per_ticker
 
 
 def pool_trades(
@@ -63,11 +70,11 @@ def pool_trades(
     n_resamples: int = 10_000,
     seed: int = 42,
 ) -> PooledResult:
-    r, per_ticker = _collect_sorted_r(results)
+    r, quarters, per_ticker = _collect_sorted(results)
     n = r.size
     if n == 0:
         empty_ci = bootstrap_mean_ci(r, n_resamples=n_resamples, seed=seed)
-        return PooledResult(0, per_ticker, r, 0, 0, 0, 0, 0, 0, empty_ci, 0, 0, 0, 0)
+        return PooledResult(0, per_ticker, r, 0, 0, 0, 0, 0, 0, empty_ci, empty_ci, 0, 0, 0, 0, 0)
 
     wins = r[r > 0]
     losses = r[r < 0]
@@ -80,6 +87,8 @@ def pool_trades(
     breakeven = 1.0 / (payoff + 1.0) if math.isfinite(payoff) else 0.0
 
     ci = bootstrap_mean_ci(r, n_resamples=n_resamples, seed=seed)
+    ci_block = cluster_bootstrap_mean_ci(r, quarters, n_resamples=n_resamples, seed=seed)
+    n_blocks = len(set(quarters))
 
     half = n // 2
     in_r, out_r = r[:half], r[half:]
@@ -95,6 +104,8 @@ def pool_trades(
         avg_loss_r=avg_loss_r,
         breakeven_win_rate=breakeven,
         ci=ci,
+        ci_block=ci_block,
+        n_blocks=n_blocks,
         in_sample_n=in_r.size,
         out_sample_n=out_r.size,
         in_sample_expectancy_r=float(in_r.mean()) if in_r.size else 0.0,

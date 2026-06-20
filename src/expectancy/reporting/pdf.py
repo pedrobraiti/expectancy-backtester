@@ -338,15 +338,36 @@ def build_pdf_report(
             f"Of the {len(bundles)} instruments, <b>{len(bundles) - decisive}</b> have a confidence "
             "interval that includes zero: individually, the data cannot confirm an edge in either "
             "direction. This is the honest reading the headline scorecard hides.", st["body"]))
+        flow.append(Spacer(1, 0.2 * cm))
+        flow.append(Paragraph(
+            "Two caveats make the picture even more sober. <b>QQQ sits exactly on the boundary</b> "
+            "(P(edge &gt; 0) = 95%), so calling it positive would be a one-tailed knife-edge, not a "
+            "finding. And <b>multiple comparisons</b> bite: testing five instruments, the chance that at "
+            "least one clears a 95% one-sided bar by luck alone is 1 &minus; 0.95<super>5</super> &asymp; "
+            "23%. Finding one borderline name among five is roughly what pure noise predicts — another "
+            "reason not to single QQQ out.", st["body"]))
         flow.append(PageBreak())
 
         flow.append(Paragraph(f"{sig_n}.1 Pooling for power, and an out-of-sample split", st["h2"]))
         flow.append(Paragraph(
             f"Because R normalises each trade by its risk, the {pooled.n_trades} trades from all "
             "instruments can be pooled into one stream — finally crossing the ~100-trade threshold. The "
-            f"pooled expectancy is <b>{pooled.expectancy_r:+.3f}R</b> with a 95% CI of "
-            f"[{pooled.ci.ci_low:+.3f}, {pooled.ci.ci_high:+.3f}] "
-            f"({'still includes zero' if not pooled.ci.distinguishable_from_zero else 'excludes zero'}). "
+            f"pooled expectancy is <b>{pooled.expectancy_r:+.3f}R</b>. But these trades are <i>not</i> "
+            "independent — US indices (~0.9 correlated) and the Brazilian names move together, so trades "
+            "firing in the same period carry redundant information. An i.i.d. bootstrap would understate "
+            "the uncertainty; a <b>calendar-quarter block bootstrap</b> keeps that correlation intact and "
+            "gives the honest interval:",
+            st["body"]))
+        flow.append(Spacer(1, 0.15 * cm))
+        flow.append(Paragraph(
+            f"&bull; i.i.d. CI (optimistic): [{pooled.ci.ci_low:+.3f}, {pooled.ci.ci_high:+.3f}]R<br/>"
+            f"&bull; block CI ({pooled.n_blocks} quarters, honest): "
+            f"<b>[{pooled.ci_block.ci_low:+.3f}, {pooled.ci_block.ci_high:+.3f}]R</b> — "
+            f"{'still includes zero' if not pooled.ci_block.distinguishable_from_zero else 'excludes zero'} "
+            f"(P(edge &gt; 0) = {pooled.ci_block.prob_positive * 100:.0f}%)",
+            st["body"]))
+        flow.append(Spacer(1, 0.2 * cm))
+        flow.append(Paragraph(
             "Splitting the pool chronologically into halves gives a genuine out-of-sample check:",
             st["body"]))
         flow.append(Spacer(1, 0.2 * cm))

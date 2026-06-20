@@ -11,13 +11,18 @@ the scorecard:
 * ``cost_sensitivity`` -- how fast the thin edge dies as transaction costs rise.
 """
 
-from expectancy.analysis.significance import ExpectancyCI, bootstrap_mean_ci
+from expectancy.analysis.significance import (
+    ExpectancyCI,
+    bootstrap_mean_ci,
+    cluster_bootstrap_mean_ci,
+)
 from expectancy.analysis.pooled import PooledResult, pool_trades
 from expectancy.analysis.cost_sensitivity import CostPoint, cost_sweep
 
 __all__ = [
     "ExpectancyCI",
     "bootstrap_mean_ci",
+    "cluster_bootstrap_mean_ci",
     "PooledResult",
     "pool_trades",
     "CostPoint",

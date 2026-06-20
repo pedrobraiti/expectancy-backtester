@@ -230,10 +230,11 @@ def fig_expectancy_comparison(bundles: list[RunBundle], path: Path) -> Path:
 def fig_significance_forest(bundles: list[RunBundle], pooled, path: Path) -> Path:
     """Forest plot: expectancy in R with 95% bootstrap CI per instrument + pool."""
     set_style()
-    labels = [b.config.ticker for b in bundles] + ["POOLED"]
+    # The pooled bar uses the block (cluster) CI — the honest, correlation-aware one.
+    labels = [b.config.ticker for b in bundles] + ["POOLED*"]
     means = [b.expectancy_ci.mean_r for b in bundles] + [pooled.expectancy_r]
-    lows = [b.expectancy_ci.ci_low for b in bundles] + [pooled.ci.ci_low]
-    highs = [b.expectancy_ci.ci_high for b in bundles] + [pooled.ci.ci_high]
+    lows = [b.expectancy_ci.ci_low for b in bundles] + [pooled.ci_block.ci_low]
+    highs = [b.expectancy_ci.ci_high for b in bundles] + [pooled.ci_block.ci_high]
 
     y = np.arange(len(labels))[::-1]
     fig, ax = plt.subplots(figsize=(8.5, 4.6))
@@ -245,7 +246,8 @@ def fig_significance_forest(bundles: list[RunBundle], pooled, path: Path) -> Pat
     ax.axvline(0, color=INK, linewidth=1.2, linestyle="--")
     ax.set_yticks(y)
     ax.set_yticklabels(labels)
-    ax.set_xlabel("Per-trade expectancy (R) with 95% bootstrap CI")
+    ax.set_xlabel("Per-trade expectancy (R) with 95% bootstrap CI\n"
+                  "*POOLED uses a calendar-quarter block bootstrap (trades aren't independent)")
     ax.set_title("Can the edge be told apart from zero? (grey CI = no)")
     fig.tight_layout()
     fig.savefig(path)

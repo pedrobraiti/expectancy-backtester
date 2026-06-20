@@ -48,10 +48,12 @@ def main() -> None:
     if bundles:
         pooled = pool_trades([b.result for b in bundles], n_resamples=10_000, seed=42)
         print(f"\n{'=' * 64}\n POOLED ACROSS ALL INSTRUMENTS ({pooled.n_trades} trades)\n{'=' * 64}")
-        print(f"  Expectancy        {pooled.expectancy_r:+.3f} R")
-        print(f"  95% bootstrap CI  [{pooled.ci.ci_low:+.3f}, {pooled.ci.ci_high:+.3f}] R "
-              f"-> {pooled.ci.verdict}")
-        print(f"  P(expectancy > 0) {pooled.ci.prob_positive * 100:.1f}%")
+        print(f"  Expectancy            {pooled.expectancy_r:+.3f} R")
+        print(f"  95% CI (i.i.d.)       [{pooled.ci.ci_low:+.3f}, {pooled.ci.ci_high:+.3f}] R "
+              f"(optimistic — trades aren't independent)")
+        print(f"  95% CI (block, q={pooled.n_blocks})  [{pooled.ci_block.ci_low:+.3f}, "
+              f"{pooled.ci_block.ci_high:+.3f}] R -> {pooled.ci_block.verdict}")
+        print(f"  P(expectancy > 0)     {pooled.ci_block.prob_positive * 100:.1f}% (block)")
         print(f"  In-sample  (first {pooled.in_sample_n}): {pooled.in_sample_expectancy_r:+.3f} R")
         print(f"  Out-sample (last  {pooled.out_sample_n}): {pooled.out_sample_expectancy_r:+.3f} R")
 
