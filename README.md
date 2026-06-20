@@ -2,9 +2,9 @@
 
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-41%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-47%20passing-brightgreen.svg)](tests/)
 [![Data](https://img.shields.io/badge/data-Yahoo%20Finance-orange.svg)](https://finance.yahoo.com/)
-[![Report](https://img.shields.io/badge/report-22--page%20PDF-red.svg)](output/expectancy_study.pdf)
+[![Report](https://img.shields.io/badge/report-25--page%20PDF-red.svg)](output/expectancy_study.pdf)
 
 A rules-based backtester that measures the **mathematical fingerprint** of a trading system —
 **win rate, expectancy, R-multiple, equity curve, max drawdown, variance and risk of ruin** — on real
@@ -38,12 +38,17 @@ instruments and reports the answer without spin.
   on the cost assumption.
 - **The recovery math is unforgiving:** a 50% drawdown needs a **100%** gain to undo. This is why the
   system measures *survival*, not just return.
+- **Give the machine enough trades and it resolves the question.** Swapping in a *frequent* strategy
+  (RSI(2) mean-reversion) over a 20-instrument basket yields **2,313 trades** — and the pooled CI
+  collapses from 0.48R wide (undecidable) to **[−0.04R, +0.03R]**, a tight band on zero. The verdict
+  sharpens from "we can't tell" to **"the edge is, to a tight tolerance, zero after costs"** — same
+  engine, only the sample changed.
 
 > **One-sentence verdict:** the value here is not the strategy — it is a backtester honest enough to
-> show that, at this sample size, the strategy's edge cannot be confirmed *or* ruled out, and that
-> variance and position sizing dominate the outcome either way.
+> say "underpowered, can't tell" on 40 trades and "precisely zero edge after costs" on 2,300, and to
+> show that variance and position sizing dominate the outcome either way.
 
-**Full 22-page technical report:** [`output/expectancy_study.pdf`](output/expectancy_study.pdf)
+**Full 25-page technical report:** [`output/expectancy_study.pdf`](output/expectancy_study.pdf)
 
 ---
 
@@ -57,9 +62,10 @@ instruments and reports the answer without spin.
   - [3. Is the edge real? The significance test](#3-is-the-edge-real-the-significance-test)
   - [4. Pooling for power & an out-of-sample split](#4-pooling-for-power--an-out-of-sample-split)
   - [5. The edge is thin: cost sensitivity](#5-the-edge-is-thin-cost-sensitivity)
-  - [6. Variance changes everything](#6-variance-changes-everything)
-  - [7. Risk of ruin & the risk dial](#7-risk-of-ruin--the-risk-dial)
-  - [8. The recovery math](#8-the-recovery-math)
+  - [6. Giving the machine enough trades](#6-giving-the-machine-enough-trades)
+  - [7. Variance changes everything](#7-variance-changes-everything)
+  - [8. Risk of ruin & the risk dial](#8-risk-of-ruin--the-risk-dial)
+  - [9. The recovery math](#9-the-recovery-math)
 - [Conclusions](#conclusions)
 - [Reproduce it](#reproduce-it)
 - [Project structure](#project-structure)
@@ -86,9 +92,9 @@ Everything downstream of the raw OHLCV is computed, never downloaded.
 | | |
 |---|---|
 | **Source** | [Yahoo Finance](https://finance.yahoo.com/) via `yfinance`, downloaded once and cached as Parquet |
-| **Instruments** | SPY, QQQ (US indices) · PETR4.SA, VALE3.SA, ITUB4.SA (Brazil / B3) |
+| **Instruments** | Core study: SPY, QQQ · PETR4.SA, VALE3.SA, ITUB4.SA. Powered study: a 20-name US+BR basket |
 | **History** | Daily, adjusted OHLCV, 2010-01-01 → 2026-01-01 (a common window for a fair comparison) |
-| **Strategy** | MA20×MA50 crossover, long-only, with an ATR(14) stop (1.5×) and target (3.0×) — configurable |
+| **Strategies** | MA20×MA50 crossover (ATR stop/target) and RSI(2) mean-reversion (signal exit) — both pluggable |
 | **King metric** | **Per-trade expectancy after costs**, in money and in R; plus PF, drawdown, Sharpe/Sortino |
 | **Costs** | Spread + commission + slippage, charged round-trip on **every** trade |
 | **Sizing** | Fixed-fractional: each trade risks **0.5% of equity**; a wider stop ⇒ a smaller position |
@@ -210,7 +216,39 @@ modest rise in slippage drags ITUB4 negative and halves QQQ. The ranking of "who
 a parameter nobody can pin down precisely. This is the cost warning from the source material, made
 literal.*
 
-### 6. Variance changes everything
+### 6. Giving the machine enough trades
+
+Every limitation in sections 1–5 traces to one root cause: a daily moving-average crossover fires
+~2.5 times a year, so even 16 years cannot power the test. The fix is not statistical — it is the
+**sample**. Swap in a *frequent* strategy (an RSI(2) mean-reversion that buys short-term dips inside
+uptrends, exiting when the dip unwinds) over a **20-instrument basket**, and the *same engine* produces
+**2,313 trades**. This is the whole point: the motor was never the bottleneck, the setup was.
+
+![The pooled CI resolves once the sample has power](output/figures/00_resolution_comparison.png)
+
+The pooled 95% block-bootstrap CI **collapses from 0.48R wide (crossover, undecidable) to 0.07R wide**:
+
+| Pooled study | Trades | Expectancy (R) | Block CI (R) | Reads as |
+|---|---|---|---|---|
+| Crossover (underpowered) | 201 | +0.090 | [−0.14, +0.34] | can't tell |
+| **RSI reversion (powered)** | **2,313** | **−0.005** | **[−0.04, +0.03]** | **precisely ~zero** |
+
+![Per-instrument powered forest](output/figures/00_powered_forest.png)
+
+The verdict sharpens from "we cannot tell" to **"the edge is, to a tight tolerance, zero after costs."**
+The high **60–68% win rates** on US indices are the genuine mean-reversion signature — but the small
+per-trade gains are eaten by spread and slippage, leaving expectancy on top of zero. With ~100+ trades
+each, several instruments now resolve individually (PETR4 turns *significantly negative*), and the
+pooled band sits right on the line. In-sample (−0.001R) and out-of-sample (−0.009R) agree, so it is
+stable, not a fluke.
+
+![Pooled convergence over 2,313 trades](output/figures/00_powered_convergence.png)
+
+*This is the lesson the whole project was built to deliver: the backtester resolves the question the
+moment it is given enough trades — and the honest answer for this textbook strategy, after costs, is no
+edge. Exactly what efficient-market priors predict, now measured rather than asserted.*
+
+### 7. Variance changes everything
 
 Even taking the trades at face value, a single equity curve hides the role of luck. Bootstrap QQQ's
 trades (resample **with replacement**) 5,000 times and rebuild the account each time — same trades,
@@ -226,7 +264,7 @@ mere reshuffle of the same trades would give an identical final equity under fix
 a product is commutative — so resampling **with replacement** is what disperses the destination, not
 just the path.)*
 
-### 7. Risk of ruin & the risk dial
+### 8. Risk of ruin & the risk dial
 
 The probability of a catastrophic drawdown is driven less by the strategy than by **how much you bet
 per trade**. The same trade stream, replayed at different risk levels, shows the non-linear blow-up.
@@ -244,7 +282,7 @@ per trade**. The same trade stream, replayed at different risk levels, shows the
 explodes *fastest* on the negative-edge instruments. The lesson the maths forces: the risk dial ends
 more accounts than the entry signal.*
 
-### 8. The recovery math
+### 9. The recovery math
 
 Losses and the gains needed to undo them are asymmetric — which is why protecting capital beats
 chasing return.
@@ -270,13 +308,18 @@ is the whole argument for sizing small.*
 2. **A moving-average crossover on daily bars is structurally underpowered.** It fires ~2.5 times a
    year, so even 16 years cannot generate the trades needed to validate or invalidate it. That — more
    than the strategy being "good" or "bad" — is the concrete lesson here.
-3. **Variance and position sizing dominate the outcome.** Bootstrapped, the same trades give very
+3. **Given power, the question resolves — and the answer is still no edge.** A frequent strategy
+   (RSI(2) reversion) over a 20-name basket produces 2,313 trades, and the pooled CI tightens to
+   [−0.04R, +0.03R]: a precise zero after costs, in- and out-of-sample agreeing. The bottleneck was
+   never the engine; it was the sample. Swap the setup, not the motor, and the machine delivers a
+   verdict.
+4. **Variance and position sizing dominate the outcome.** Bootstrapped, the same trades give very
    different equity paths, and the risk dial controls survival far more than the entry rule does. The
    thin edge is also fragile to the cost assumption.
-4. **The deliverable is the method, not the money.** A backtester that refuses to lie — no lookahead,
+5. **The deliverable is the method, not the money.** A backtester that refuses to lie — no lookahead,
    full costs, fixed-fractional risk, a forced expectancy sanity check, bootstrap confidence intervals,
    pooling, an out-of-sample split and reproducible Monte-Carlo — is what lets you separate a real edge
-   from a lucky one. Here it says, precisely: *not enough evidence to call it.*
+   from a lucky one. Across two strategies and 2,500 trades it found none — and said so, precisely.
 
 > The backtester *measures* an edge; it does not *create* one. Plug in a strategy that trades often
 > enough to have genuine statistical power, and the same machinery will resolve the question — honestly,
@@ -295,9 +338,10 @@ py -3.12 -m venv .venv
 pip install -r requirements.txt
 pip install -e .
 
-pytest -q                               # 41 tests
+pytest -q                               # 47 tests
 python main.py                          # single instrument from config.yaml (full scorecard + figures)
-python scripts/run_study.py             # downloads + caches data, runs the US+BR basket
+python scripts/run_study.py             # the underpowered crossover basket (US+BR)
+python scripts/run_powered_study.py     # the powered RSI-reversion study (20-name basket)
 python scripts/build_report.py          # renders output/figures/*.png and the PDF report
 ```
 
@@ -308,7 +352,7 @@ source .venv/bin/activate
 pip install -r requirements.txt && pip install -e .
 pytest -q
 python main.py
-python scripts/run_study.py && python scripts/build_report.py
+python scripts/run_study.py && python scripts/run_powered_study.py && python scripts/build_report.py
 ```
 
 Change the instrument, period, costs, risk and strategy parameters in [`config.yaml`](config.yaml);
@@ -320,16 +364,16 @@ nothing requires touching code.
 src/expectancy/
   config.py        typed config loaded from config.yaml
   data/            yfinance download + Parquet cache + cleaning (the only networked layer)
-  strategy/        pluggable Strategy base + MA-crossover with ATR stop/target; causal indicators
-  engine/          trade-by-trade simulation (t→t+1 execution, costs, fixed-fractional sizing, R)
+  strategy/        pluggable Strategy base, MA-crossover (ATR stop/target), RSI(2) reversion (signal exit)
+  engine/          trade-by-trade simulation (t→t+1 execution, costs, sizing, R, stop/target/signal exits)
   metrics/         the scorecard: expectancy ($ & R), profit factor, breakeven WR, drawdown, Sharpe
   montecarlo/      bootstrap variance, risk of ruin by bet size, recovery math
-  analysis/        significance (bootstrap CI), pooling + out-of-sample split, cost sensitivity
+  analysis/        significance (bootstrap + block bootstrap CI), pooling + out-of-sample split, cost sensitivity
   reporting/       terminal report, matplotlib figures, and the reportlab PDF
   runner.py        wires the layers into one backtest run
-scripts/           run_study.py (basket + cache) · build_report.py (figures + PDF)
+scripts/           run_study.py (crossover) · run_powered_study.py (RSI basket) · build_report.py
 main.py            single-instrument entry point (the brief's acceptance criterion)
-tests/             41 tests: lookahead, R-multiples, expectancy sanity, sizing, Monte-Carlo, significance
+tests/             47 tests: lookahead, R-multiples, signal/max-hold exits, expectancy sanity, significance
 output/figures/    the figures used in the report and this README (committed)
 ```
 

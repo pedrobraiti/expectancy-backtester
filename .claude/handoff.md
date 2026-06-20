@@ -4,17 +4,18 @@
 > de forma relativamente detalhada. É o PRIMEIRO arquivo que a próxima sessão lê.
 > Mantenha-o vivo e específico — detalhado o bastante para retomar sem reconstruir o raciocínio.
 
-**Última atualização:** 2026-06-20 — v1.2 ENTREGUE (block bootstrap) após 2ª revisão externa.
+**Última atualização:** 2026-06-20 — v2.0 ENTREGUE (estudo powered) após escolha do usuário.
 
 ## Onde parei
 Projeto completo e publicado: https://github.com/pedrobraiti/expectancy-backtester (público).
-v1.0 = núcleo+reporting+estudo. v1.1 = camada `analysis/` (CI bootstrap, pooling+OOS, custo). v1.2
-(esta sessão) = **block bootstrap** no pooled: os 201 trades não são IID (ativos correlacionados),
-então o IC IID subestimava a incerteza. Agora reporta IID [−0,11,+0,30] E block [−0,14,+0,34] (~20%
-mais largo, 58 trimestres) — ambos cruzam zero. + nota de comparações múltiplas + QQQ como fronteira.
-41 testes, PDF 22 páginas. Falta commitar/pushar a v1.2 (em andamento).
+v1.0 núcleo; v1.1 analysis/; v1.2 block bootstrap; **v2.0 (esta sessão) = estudo "powered"**: o usuário
+escolheu dar trades suficientes pra máquina resolver. Adicionei saída por sinal no motor (coluna `exit`
++ max_holding, backward-compatible), indicador RSI, estratégia `rsi_reversion` e `run_powered_study.py`
+(20 ativos). Resultado: 2313 trades, pooled CI colapsa pra [−0,04,+0,03] → resolve em "edge ~0 após
+custos". 47 testes, PDF 25 páginas, README com seção 6 nova. Falta commitar/pushar v2.0 (em andamento).
 **ATENÇÃO push:** o remoto pode ter commits do usuário (ele já editou o README no GitHub — removeu
-emojis). Se `git push` falhar, `git fetch` + rebase preservando a edição dele.
+emojis decorativos; ver [[readme-no-decorative-emojis]]). Se `git push` falhar, `git fetch` + rebase
+preservando a edição dele. NÃO usar emojis decorativos no README.
 
 ## Contexto mental
 Backtester de expectância fiel ao `BACKTEST_BRIEF.md`. Estudo real (2010–2026, 0,5% risco/trade,

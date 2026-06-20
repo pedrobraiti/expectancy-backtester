@@ -59,3 +59,20 @@ de clusters). Pooled agora reporta os DOIS ICs: IID [−0,11, +0,30] (otimista) 
 como refinamento conhecido (não muda o veredito), não implementado.
 **Alternativas consideradas:** block por instrumento (5 clusters) — coarse demais; trimestre-calendário
 captura a correlação temporal e cross-sectional e dá N efetivo razoável (~58).
+
+## 2026-06-20 — v2.0: estudo "powered" (RSI reversão + saída por sinal) p/ resolver a pergunta
+**Motivo:** o usuário escolheu (após a 2ª revisão) o caminho de DADOS: dar trades suficientes pra
+máquina de fato concluir, em vez de só polir estatística. Crossover diário dispara ~2,5x/ano →
+estruturalmente sem poder. Solução: estratégia frequente + cesta grande, reusando o motor.
+**O que mudou:** (1) Motor estendido para **saída por sinal** (coluna `exit` opcional → fecha na
+abertura de t+1, lookahead-safe) + `max_holding_bars` — backward-compatible (default 0/sem exit =
+comportamento idêntico ao crossover). (2) Indicador RSI (Wilder). (3) Estratégia `rsi_reversion`
+(Connors RSI2: compra dip oversold em uptrend filtrado por SMA200, sai quando RSI recupera; stop ATR
+define o R, sem alvo fixo). (4) `scripts/run_powered_study.py` sobre 20 ativos US+BR.
+**Resultado-chave:** 2313 trades. Pooled expectância −0,005R, block CI **[−0,04, +0,03]** (vs crossover
+[−0,14,+0,34]) — banda ESTREITA colada no zero. A pergunta RESOLVE: não é "não dá pra saber", é "edge
+~0 após custos, com precisão". WR 60-68% nos índices US (assinatura real de reversão), mas custos comem
+o ganho. IS (−0,001) ≈ OOS (−0,009). PETR4 vira significativamente negativo. Lição final: o gargalo era
+o setup, não o motor.
+**Alternativas consideradas:** MA mais rápida (mais trades mas ainda trend-following / provável ~0);
+intraday (Yahoo só dá ~2 anos de dados intraday, inviável p/ 16 anos).

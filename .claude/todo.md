@@ -3,13 +3,15 @@
 Plano vivo do projeto. Tarefas e subtarefas, marcadas conforme concluídas.
 
 ## Em progresso
-<vazio — v1.2 entregue>
+<vazio — v2.0 entregue>
 
 ## Próximas
-<vazio> (mudança de jogo real seria de DADOS: estratégia com mais sinais / timeframe menor / cesta
-maior tratada como portfólio — gerar centenas/milhares de trades. O motor já está pronto pra isso.)
+<vazio> (refinamentos possíveis: BCa bootstrap; intraday se houver fonte de dados; walk-forward com
+reotimização de parâmetros agora que há amostra)
 
 ## Concluído
+- [x] v2.0: estratégia RSI(2) reversão + saída por sinal no motor + estudo powered (20 ativos, 2313
+      trades) → IC pooled colapsa pra [−0,04,+0,03], resolve a pergunta (~0 edge após custos). 47 testes
 - [x] v1.2: block bootstrap no pooled (correlação) + comparações múltiplas + QQQ fronteira (41 testes)
 - [x] v1.1: camada analysis/ (CI bootstrap, pooling+OOS, sensibilidade ao custo) após revisão externa
 - [x] Recalibrar conclusão "sem edge" → "underpowered, não distinguível de zero" + corrigir termo bootstrap
