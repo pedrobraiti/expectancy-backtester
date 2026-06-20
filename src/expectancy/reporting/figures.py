@@ -237,7 +237,7 @@ def fig_significance_forest(bundles: list[RunBundle], pooled, path: Path) -> Pat
     highs = [b.expectancy_ci.ci_high for b in bundles] + [pooled.ci_block.ci_high]
 
     y = np.arange(len(labels))[::-1]
-    fig, ax = plt.subplots(figsize=(8.5, 4.6))
+    fig, ax = plt.subplots(figsize=(8.5, max(4.6, 0.42 * len(labels) + 1.4)))
     for yi, mean, lo, hi in zip(y, means, lows, highs):
         crosses_zero = lo <= 0 <= hi
         color = MUTED if crosses_zero else (POSITIVE if lo > 0 else NEGATIVE)
@@ -293,6 +293,34 @@ def fig_cost_sensitivity(sweeps: dict[str, list], path: Path) -> Path:
     ax.set_ylabel("Expectancy (R)")
     ax.set_xlabel("Slippage fraction per fill")
     ax.legend(title="Instrument")
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+    return path
+
+
+def fig_resolution_comparison(crossover_pooled, powered_pooled, path: Path) -> Path:
+    """The headline of v2: the pooled CI collapsing once the sample has power."""
+    set_style()
+    rows = [
+        (f"Crossover\n({crossover_pooled.n_trades} trades)", crossover_pooled),
+        (f"RSI reversion\n({powered_pooled.n_trades} trades)", powered_pooled),
+    ]
+    y = [1, 0]
+    fig, ax = plt.subplots(figsize=(8.5, 3.4))
+    for yi, (label, pooled) in zip(y, rows):
+        lo, hi, mean = pooled.ci_block.ci_low, pooled.ci_block.ci_high, pooled.expectancy_r
+        crosses_zero = lo <= 0 <= hi
+        color = MUTED if crosses_zero else (POSITIVE if lo > 0 else NEGATIVE)
+        ax.plot([lo, hi], [yi, yi], color=color, linewidth=3.0, solid_capstyle="round")
+        ax.plot(mean, yi, "o", color=color, markersize=8)
+        ax.text(hi + 0.01, yi, f"  width {hi - lo:.2f}R", va="center", fontsize=9, color=MUTED)
+    ax.axvline(0, color=INK, linewidth=1.2, linestyle="--")
+    ax.set_yticks(y)
+    ax.set_yticklabels([r[0] for r in rows])
+    ax.set_ylim(-0.6, 1.6)
+    ax.set_xlabel("Pooled per-trade expectancy (R), 95% block-bootstrap CI")
+    ax.set_title("Give the machine enough trades and the question resolves")
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)

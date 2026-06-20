@@ -23,6 +23,7 @@ from expectancy.reporting.figures import (  # noqa: E402
     fig_cost_sensitivity,
     fig_expectancy_comparison,
     fig_pooled_convergence,
+    fig_resolution_comparison,
     fig_significance_forest,
     fig_winrate_vs_breakeven,
 )
@@ -33,6 +34,7 @@ SLIPPAGE_LEVELS = (0.0, 0.025, 0.05, 0.10, 0.15, 0.20, 0.30)
 OUTPUT = ROOT / "output"
 FIGURES = OUTPUT / "figures"
 STUDY_PICKLE = OUTPUT / "study.pkl"
+POWERED_PICKLE = OUTPUT / "powered_study.pkl"
 PDF_PATH = OUTPUT / "expectancy_study.pdf"
 
 
@@ -69,6 +71,29 @@ def main() -> None:
     }
     print("[report] comparison figures")
 
+    # The powered study (optional): a frequent strategy over a large basket.
+    powered = None
+    if POWERED_PICKLE.exists():
+        with open(POWERED_PICKLE, "rb") as fh:
+            powered_bundles = [b for b in pickle.load(fh) if b.result.n_trades > 0]
+        if powered_bundles:
+            powered_pooled = pool_trades([b.result for b in powered_bundles], seed=42)
+            powered_figures = {
+                "resolution": fig_resolution_comparison(
+                    pooled, powered_pooled, FIGURES / "00_resolution_comparison.png"),
+                "forest": fig_significance_forest(
+                    powered_bundles, powered_pooled, FIGURES / "00_powered_forest.png"),
+                "convergence": fig_pooled_convergence(
+                    powered_pooled, FIGURES / "00_powered_convergence.png"),
+            }
+            powered = {
+                "bundles": powered_bundles,
+                "pooled": powered_pooled,
+                "figures": powered_figures,
+            }
+            print(f"[report] powered study: {powered_pooled.n_trades} trades, "
+                  f"{len(powered_bundles)} instruments")
+
     build_pdf_report(
         bundles,
         figures_by_ticker,
@@ -76,6 +101,7 @@ def main() -> None:
         PDF_PATH,
         generated_on=date.today().isoformat(),
         pooled=pooled,
+        powered=powered,
     )
     print(f"[report] PDF written to {PDF_PATH.relative_to(ROOT)}")
 
