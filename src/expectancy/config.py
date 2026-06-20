@@ -32,6 +32,12 @@ class StrategyConfig:
     stop_atr_mult: float = 1.5
     target_atr_mult: float = 3.0
     direction: str = "long_only"
+    # Mean-reversion (rsi_reversion) parameters.
+    rsi_period: int = 2
+    rsi_entry: float = 10.0
+    rsi_exit: float = 60.0
+    trend_filter_ma: int = 200
+    max_holding_bars: int = 0          # 0 = disabled (ma_crossover); rsi_reversion sets it
 
 
 @dataclass(frozen=True)
@@ -100,6 +106,11 @@ def load_config(path: str | Path = "config.yaml") -> Config:
             stop_atr_mult=float(strat_raw.get("stop_atr_mult", 1.5)),
             target_atr_mult=float(strat_raw.get("alvo_atr_mult", 3.0)),
             direction=strat_raw.get("direction", "long_only"),
+            rsi_period=int(strat_raw.get("rsi_periodo", 2)),
+            rsi_entry=float(strat_raw.get("rsi_entrada", 10.0)),
+            rsi_exit=float(strat_raw.get("rsi_saida", 60.0)),
+            trend_filter_ma=int(strat_raw.get("filtro_tendencia_ma", 200)),
+            max_holding_bars=int(strat_raw.get("max_barras", 0)),
         ),
         montecarlo=MonteCarloConfig(
             n_simulations=int(mc_raw.get("n_simulacoes", 5000)),

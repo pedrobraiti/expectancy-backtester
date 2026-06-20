@@ -15,13 +15,19 @@ custos:
   slippage_frac: 0.05           # fraction of the entry candle range, per fill
 
 estrategia:
-  nome: "ma_crossover"
+  nome: "ma_crossover"          # ma_crossover | rsi_reversion
   ma_rapida: 20
   ma_lenta: 50
   atr_periodo: 14
   stop_atr_mult: 1.5
   alvo_atr_mult: 3.0
   direction: "long_only"        # long_only | long_short
+  # RSI(2) mean-reversion parameters (used when nome == "rsi_reversion"):
+  rsi_periodo: 2
+  rsi_entrada: 10               # enter long when fast RSI < this (oversold)
+  rsi_saida: 60                 # exit when fast RSI recovers above this
+  filtro_tendencia_ma: 200      # only trade above this SMA (buy dips in uptrends)
+  max_barras: 0                 # 0 = disabled; rsi_reversion typically uses ~10
 
 montecarlo:
   n_simulacoes: 5000

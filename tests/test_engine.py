@@ -9,7 +9,7 @@ from expectancy.engine import BacktestEngine
 from expectancy.strategy.base import SignalColumns
 from tests.conftest import make_ohlcv
 
-S, ST, TG = SignalColumns.SIGNAL, SignalColumns.STOP, SignalColumns.TARGET
+S, ST, TG, EX = SignalColumns.SIGNAL, SignalColumns.STOP, SignalColumns.TARGET, SignalColumns.EXIT
 
 
 def _zero_cost_config() -> Config:
@@ -97,6 +97,57 @@ def test_costs_make_a_winner_smaller():
     ).run(df).trades[0]
     assert with_cost.pnl_money < no_cost.pnl_money
     assert with_cost.r_multiple < no_cost.r_multiple
+
+
+def test_exit_signal_fills_at_next_bar_open():
+    """An exit signal at bar t closes the position at the OPEN of bar t+1."""
+    rows = [
+        {"Open": 100, "High": 101, "Low": 99, "Close": 100},
+        {"Open": 100, "High": 101, "Low": 99, "Close": 100, S: 1, ST: 90},   # signal, no target
+        {"Open": 100, "High": 102, "Low": 99, "Close": 101},                 # entry bar (t+1)
+        {"Open": 101, "High": 103, "Low": 100, "Close": 102, EX: 1},         # exit signal at close
+        {"Open": 102, "High": 104, "Low": 101, "Close": 103},               # filled here at open
+    ]
+    result = BacktestEngine(_zero_cost_config()).run(make_ohlcv(rows))
+    assert result.n_trades == 1
+    trade = result.trades[0]
+    assert trade.exit_reason == "signal"
+    assert trade.entry_price == 100.0
+    assert trade.exit_price == 102.0          # open of the bar after the exit signal
+    # risk/unit = |100-90| = 10; gain = 2 -> +0.2R
+    assert np.isclose(trade.r_multiple, 0.2, atol=1e-9)
+
+
+def test_max_holding_forces_an_exit():
+    """With no stop/target/exit hit, the position closes after max_holding_bars."""
+    rows = [
+        {"Open": 100, "High": 101, "Low": 99, "Close": 100},
+        {"Open": 100, "High": 101, "Low": 99, "Close": 100, S: 1, ST: 90},
+        {"Open": 100, "High": 101, "Low": 99.5, "Close": 100},   # entry bar (held 1)
+        {"Open": 100, "High": 101, "Low": 99.5, "Close": 100},   # held 2 -> schedule exit
+        {"Open": 100, "High": 101, "Low": 99.5, "Close": 100},   # exit at open here
+        {"Open": 100, "High": 101, "Low": 99.5, "Close": 100},
+    ]
+    from expectancy.config import StrategyConfig
+    cfg = Config(initial_capital=10_000, risk_per_trade_pct=0.5, costs=CostConfig(0, 0, 0),
+                 strategy=StrategyConfig(max_holding_bars=2))
+    result = BacktestEngine(cfg).run(make_ohlcv(rows))
+    assert result.n_trades == 1
+    assert result.trades[0].exit_reason == "signal"
+
+
+def test_stop_still_beats_a_pending_max_hold_intrabar():
+    """A catastrophic stop must still fire even while a position is aging out."""
+    rows = [
+        {"Open": 100, "High": 101, "Low": 99, "Close": 100},
+        {"Open": 100, "High": 101, "Low": 99, "Close": 100, S: 1, ST: 95},
+        {"Open": 100, "High": 101, "Low": 94, "Close": 96},      # stop 95 hit on entry bar
+    ]
+    from expectancy.config import StrategyConfig
+    cfg = Config(initial_capital=10_000, risk_per_trade_pct=0.5, costs=CostConfig(0, 0, 0),
+                 strategy=StrategyConfig(max_holding_bars=1))
+    result = BacktestEngine(cfg).run(make_ohlcv(rows))
+    assert result.trades[0].exit_reason == "stop"
 
 
 def test_position_size_scales_inversely_with_stop_distance():

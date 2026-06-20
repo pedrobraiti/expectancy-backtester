@@ -8,7 +8,7 @@ import pytest
 
 from expectancy.strategy import build_strategy
 from expectancy.strategy.base import SignalColumns
-from expectancy.strategy.indicators import average_true_range, sma
+from expectancy.strategy.indicators import average_true_range, rsi, sma
 from expectancy.config import StrategyConfig
 
 
@@ -50,6 +50,35 @@ def test_long_only_emits_no_short_signals(synthetic_price):
 def test_fast_must_be_faster_than_slow():
     with pytest.raises(ValueError):
         build_strategy(StrategyConfig(fast_ma=50, slow_ma=20))
+
+
+def test_rsi_is_bounded_and_low_after_a_selloff():
+    falling = pd.Series([100, 98, 96, 94, 92, 90, 88], dtype=float)
+    r = rsi(falling, 2).dropna()
+    assert (r >= 0).all() and (r <= 100).all()
+    assert r.iloc[-1] < 10          # a steady decline pins fast RSI near zero
+
+
+def test_rsi_reversion_only_enters_oversold_uptrends(synthetic_price):
+    cfg = StrategyConfig(name="rsi_reversion", rsi_period=2, rsi_entry=10,
+                         rsi_exit=60, trend_filter_ma=200, max_holding_bars=10)
+    sig = build_strategy(cfg).generate_signals(synthetic_price)
+    entries = sig[sig[SignalColumns.SIGNAL] == 1]
+    fast = rsi(synthetic_price["Close"], 2)
+    trend = sma(synthetic_price["Close"], 200)
+    # Every entry must be both oversold and above the trend filter.
+    assert (fast.loc[entries.index] < 10).all()
+    assert (entries["Close"] > trend.loc[entries.index]).all()
+
+
+def test_rsi_reversion_emits_exit_column_and_no_target(synthetic_price):
+    cfg = StrategyConfig(name="rsi_reversion", max_holding_bars=10)
+    sig = build_strategy(cfg).generate_signals(synthetic_price)
+    assert SignalColumns.EXIT in sig.columns
+    assert sig[SignalColumns.EXIT].isin([0, 1]).all()
+    # Reversion exits on a signal, not a fixed target.
+    assert sig[SignalColumns.TARGET].isna().all()
+    assert (sig[SignalColumns.SIGNAL] == 1).sum() > 0      # it actually trades
 
 
 def test_strategy_does_not_mutate_or_use_future():

@@ -13,9 +13,12 @@ def make_ohlcv(rows: list[dict], start: str = "2020-01-01") -> pd.DataFrame:
     """Build an OHLCV (+ optional signal/stop/target) frame from explicit rows."""
     dates = pd.bdate_range(start, periods=len(rows))
     df = pd.DataFrame(rows, index=dates)
-    for col in (SignalColumns.SIGNAL, SignalColumns.STOP, SignalColumns.TARGET):
+    for col in (SignalColumns.SIGNAL, SignalColumns.STOP, SignalColumns.TARGET, SignalColumns.EXIT):
         if col not in df.columns:
-            df[col] = 0 if col == SignalColumns.SIGNAL else np.nan
+            df[col] = np.nan if col in (SignalColumns.STOP, SignalColumns.TARGET) else 0
+    # Any row that didn't specify a discrete column keeps the neutral default.
+    df[SignalColumns.SIGNAL] = df[SignalColumns.SIGNAL].fillna(0)
+    df[SignalColumns.EXIT] = df[SignalColumns.EXIT].fillna(0)
     return df
 
 

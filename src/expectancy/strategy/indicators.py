@@ -16,6 +16,25 @@ def sma(series: pd.Series, period: int) -> pd.Series:
     return series.rolling(window=period, min_periods=period).mean()
 
 
+def rsi(series: pd.Series, period: int) -> pd.Series:
+    """Wilder's RSI over `period` bars (0-100), causal.
+
+    Fast RSI (period 2-3) is the engine of Connors-style mean reversion: a very
+    low reading flags a short-term oversold pullback. NaN until the window fills.
+    """
+    delta = series.diff()
+    gain = delta.clip(lower=0.0)
+    loss = (-delta).clip(lower=0.0)
+    avg_gain = gain.ewm(alpha=1.0 / period, min_periods=period, adjust=False).mean()
+    avg_loss = loss.ewm(alpha=1.0 / period, min_periods=period, adjust=False).mean()
+    rs = avg_gain / avg_loss
+    out = 100.0 - 100.0 / (1.0 + rs)
+    # All-gain windows give avg_loss 0 -> rs inf -> RSI 100 (handled by the limit).
+    out[avg_loss == 0.0] = 100.0
+    out[(avg_gain == 0.0) & (avg_loss == 0.0)] = 50.0
+    return out
+
+
 def average_true_range(df: pd.DataFrame, period: int) -> pd.Series:
     """Wilder's ATR.
 

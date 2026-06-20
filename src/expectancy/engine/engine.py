@@ -65,6 +65,11 @@ class BacktestEngine:
         signal = signals[SignalColumns.SIGNAL].to_numpy(dtype=float)
         stop_col = signals[SignalColumns.STOP].to_numpy(dtype=float)
         target_col = signals[SignalColumns.TARGET].to_numpy(dtype=float)
+        if SignalColumns.EXIT in signals.columns:
+            exit_col = signals[SignalColumns.EXIT].to_numpy(dtype=float)
+        else:
+            exit_col = np.zeros(len(signals), dtype=float)
+        max_holding = cfg.strategy.max_holding_bars
 
         n = len(signals)
         equity = cfg.initial_capital
@@ -84,6 +89,8 @@ class BacktestEngine:
         risk_per_unit = 0.0
         risk_money = 0.0
         commission_entry = 0.0
+        pending_exit = False    # an exit signal / max-hold fired last bar -> fill at this open
+        bars_held = 0
 
         while i < n:
             if not in_position:
@@ -107,6 +114,8 @@ class BacktestEngine:
                     commission_entry = self.costs.commission_per_order()
                     entry_idx = j
                     in_position = True
+                    pending_exit = False
+                    bars_held = 0
                     i = j  # the entry bar itself can hit stop/target
                     continue
                 i += 1
@@ -117,24 +126,35 @@ class BacktestEngine:
             exit_reason = None
             raw_exit = None
 
-            if side == 1:
-                hit_stop = low[i] <= stop_price
-                hit_target = high[i] >= target_price
+            # A signal/max-hold exit raised on the previous bar fills at THIS open,
+            # which happens before any intrabar stop/target on this bar.
+            if pending_exit:
+                exit_reason, raw_exit = "signal", open_[i]
             else:
-                hit_stop = high[i] >= stop_price
-                hit_target = low[i] <= target_price
+                if side == 1:
+                    hit_stop = low[i] <= stop_price
+                    hit_target = high[i] >= target_price
+                else:
+                    hit_stop = high[i] >= stop_price
+                    hit_target = low[i] <= target_price
 
-            if hit_stop and hit_target:
-                # Conservative: assume the stop filled first (worst case).
-                exit_reason, raw_exit = "stop", stop_price
-            elif hit_stop:
-                exit_reason, raw_exit = "stop", stop_price
-            elif hit_target:
-                exit_reason, raw_exit = "target", target_price
-            elif i == n - 1:
-                exit_reason, raw_exit = "end_of_data", close[i]
+                if hit_stop and hit_target:
+                    # Conservative: assume the stop filled first (worst case).
+                    exit_reason, raw_exit = "stop", stop_price
+                elif hit_stop:
+                    exit_reason, raw_exit = "stop", stop_price
+                elif hit_target:
+                    exit_reason, raw_exit = "target", target_price
+                elif i == n - 1:
+                    exit_reason, raw_exit = "end_of_data", close[i]
 
             if exit_reason is None:
+                # Still in the trade: decide whether to schedule an exit for next open.
+                bars_held += 1
+                exit_signal_fired = exit_col[i] != 0
+                max_hold_hit = max_holding > 0 and bars_held >= max_holding
+                if exit_signal_fired or max_hold_hit:
+                    pending_exit = True
                 i += 1
                 continue
 
@@ -171,6 +191,8 @@ class BacktestEngine:
             equity_values.append(equity)
 
             in_position = False
+            pending_exit = False
+            bars_held = 0
             # Re-evaluate the *same* bar for a fresh entry signal next loop.
             i += 1
 

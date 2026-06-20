@@ -13,8 +13,14 @@ from types import SimpleNamespace
 
 import pandas as pd
 
-SignalColumns = SimpleNamespace(SIGNAL="signal", STOP="stop", TARGET="target")
-"""Names of the columns a strategy must add: entry side, stop price, target price."""
+SignalColumns = SimpleNamespace(SIGNAL="signal", STOP="stop", TARGET="target", EXIT="exit")
+"""Names of the columns a strategy adds.
+
+``signal``/``stop``/``target`` are required; ``exit`` is optional. An ``exit``
+of 1 at a bar's close asks the engine to close the open position at the **next**
+bar's open (lookahead-safe), which is how mean-reversion strategies that revert
+on a condition (rather than hitting a fixed target) get out.
+"""
 
 
 class Strategy(ABC):
@@ -39,4 +45,5 @@ class Strategy(ABC):
         out[SignalColumns.SIGNAL] = 0
         out[SignalColumns.STOP] = float("nan")
         out[SignalColumns.TARGET] = float("nan")
+        out[SignalColumns.EXIT] = 0
         return out
