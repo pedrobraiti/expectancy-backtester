@@ -17,7 +17,13 @@ from expectancy.analysis.significance import (
     cluster_bootstrap_mean_ci,
 )
 from expectancy.analysis.pooled import PooledResult, pool_trades
-from expectancy.analysis.cost_sensitivity import CostPoint, cost_sweep
+from expectancy.analysis.cost_sensitivity import (
+    CostPoint,
+    PooledCostCurve,
+    PooledCostPoint,
+    cost_sweep,
+    pooled_cost_curve,
+)
 
 __all__ = [
     "ExpectancyCI",
@@ -27,4 +33,7 @@ __all__ = [
     "pool_trades",
     "CostPoint",
     "cost_sweep",
+    "PooledCostCurve",
+    "PooledCostPoint",
+    "pooled_cost_curve",
 ]

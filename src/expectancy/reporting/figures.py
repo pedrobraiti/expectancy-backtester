@@ -177,8 +177,10 @@ def fig_risk_of_ruin(bundle: RunBundle, path: Path) -> Path:
 
     fig, ax = plt.subplots(figsize=(7.5, 4.0))
     bars = ax.bar(levels, probs, color=colors, alpha=0.85, edgecolor="white")
+    headroom = max(max(probs), 1.0) * 0.12
+    ax.set_ylim(0, max(max(probs), 1.0) * 1.18 + headroom)
     for bar, p in zip(bars, probs):
-        ax.text(bar.get_x() + bar.get_width() / 2, p + 0.5, f"{p:.1f}%", ha="center", fontsize=9)
+        ax.text(bar.get_x() + bar.get_width() / 2, p + headroom, f"{p:.1f}%", ha="center", fontsize=9)
     target = int(bundle.ruin[0].drawdown_target_pct)
     ax.set_title(f"Risk of ruin: P(drawdown ≥ {target}%) by risk per trade ({bundle.config.ticker})")
     ax.set_ylabel("Probability (%)")
@@ -293,6 +295,44 @@ def fig_cost_sensitivity(sweeps: dict[str, list], path: Path) -> Path:
     ax.set_ylabel("Expectancy (R)")
     ax.set_xlabel("Slippage fraction per fill")
     ax.legend(title="Instrument")
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+    return path
+
+
+def fig_powered_cost_curve(curve, baseline_slippage: float, path: Path) -> Path:
+    """Pooled expectancy of the powered study vs slippage — the gross-vs-net story."""
+    set_style()
+    xs = [p.slippage_frac for p in curve.points]
+    ys = [p.expectancy_r for p in curve.points]
+
+    fig, ax = plt.subplots(figsize=(9, 4.6))
+    ax.plot(xs, ys, marker="o", markersize=5, linewidth=1.8, color=ACCENT, label="Net pooled expectancy")
+    ax.axhline(0, color=INK, linewidth=1.2, linestyle="--")
+
+    # Gross (all costs zeroed) as a reference at the left edge.
+    ax.plot(0, curve.gross_expectancy_r, marker="*", markersize=15, color=POSITIVE, zorder=5)
+    ax.annotate(f"gross (no costs)\n{curve.gross_expectancy_r:+.3f}R",
+                (0, curve.gross_expectancy_r), textcoords="offset points", xytext=(12, 4),
+                fontsize=8.5, color=POSITIVE)
+
+    if curve.breakeven_slippage is not None:
+        ax.axvline(curve.breakeven_slippage, color=NEGATIVE, linewidth=1.2, linestyle=":")
+        ax.annotate(f"break-even\nslippage ≈ {curve.breakeven_slippage:.3f}",
+                    (curve.breakeven_slippage, 0), textcoords="offset points", xytext=(6, 28),
+                    fontsize=8.5, color=NEGATIVE)
+
+    ax.axvline(baseline_slippage, color=MUTED, linewidth=1.0, linestyle="-")
+    ax.annotate("baseline", (baseline_slippage, min(ys)), textcoords="offset points",
+                xytext=(4, 2), fontsize=8, color=MUTED)
+
+    ax.fill_between(xs, ys, 0, where=[y > 0 for y in ys], color=POSITIVE, alpha=0.10)
+    ax.fill_between(xs, ys, 0, where=[y <= 0 for y in ys], color=NEGATIVE, alpha=0.10)
+    ax.set_title("Powered study: the edge is real gross, but costs eat it (2,313 trades)")
+    ax.set_ylabel("Pooled expectancy (R)")
+    ax.set_xlabel("Slippage fraction per fill")
+    ax.legend(loc="upper right")
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)

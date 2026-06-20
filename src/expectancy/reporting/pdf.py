@@ -106,13 +106,16 @@ def _scorecard_table(bundle: RunBundle, st: dict) -> Table:
 
 
 def _comparison_table(bundles: list[RunBundle]) -> Table:
-    header = ["Instrument", "Trades", "Win%", "Exp. R", "Exp. $", "Profit factor", "Max DD%", "Edge?"]
+    # The verdict column reports the significance conclusion (§3), not the sign of
+    # the point estimate — otherwise the header would contradict the report's own
+    # finding that none of these is distinguishable from zero.
+    header = ["Instrument", "Trades", "Win%", "Exp. R", "Exp. $", "Profit factor", "Max DD%", "Verdict"]
     rows = [header]
     style = [
         ("BACKGROUND", (0, 0), (-1, 0), INK),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("FONTSIZE", (0, 0), (-1, -1), 8.5),
         ("GRID", (0, 0), (-1, -1), 0.4, MUTED),
         ("ALIGN", (1, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -121,17 +124,19 @@ def _comparison_table(bundles: list[RunBundle]) -> Table:
     ]
     for i, b in enumerate(bundles, start=1):
         m = b.metrics
+        ci = b.expectancy_ci
+        verdict = "unconfirmed" if not ci.distinguishable_from_zero else (
+            "positive" if ci.ci_low > 0 else "negative")
         rows.append([
             b.config.ticker, f"{m.n_trades}", f"{m.win_rate * 100:.1f}",
             f"{m.expectancy_r:+.3f}", f"{m.expectancy_money:+.2f}",
             _pf(m.profit_factor), f"{m.max_drawdown_pct:.1f}",
-            "YES" if m.has_edge else "no",
+            verdict,
         ])
-        cell_color = POSITIVE if m.has_edge else NEGATIVE
-        style.append(("TEXTCOLOR", (3, i), (3, i), cell_color))
-        style.append(("TEXTCOLOR", (7, i), (7, i), cell_color))
+        color = MUTED if not ci.distinguishable_from_zero else (POSITIVE if ci.ci_low > 0 else NEGATIVE)
+        style.append(("TEXTCOLOR", (7, i), (7, i), color))
         style.append(("FONTNAME", (7, i), (7, i), "Helvetica-Bold"))
-    table = Table(rows, colWidths=[_CONTENT_WIDTH * w for w in (0.18, 0.1, 0.1, 0.13, 0.14, 0.16, 0.11, 0.08)])
+    table = Table(rows, colWidths=[_CONTENT_WIDTH * w for w in (0.17, 0.09, 0.09, 0.12, 0.13, 0.15, 0.1, 0.15)])
     table.setStyle(TableStyle(style))
     return table
 
@@ -150,8 +155,9 @@ def _ci_table(bundles: list[RunBundle], pooled) -> Table:
         ("TOPPADDING", (0, 0), (-1, -1), 4),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]
+    # The POOLED row uses the block bootstrap (honest), to match the forest plot.
     entries = [(b.config.ticker, b.expectancy_ci) for b in bundles]
-    entries.append(("POOLED", pooled.ci))
+    entries.append(("POOLED†", pooled.ci_block))
     for i, (name, ci) in enumerate(entries, start=1):
         rows.append([
             name, f"{ci.n}", f"{ci.mean_r:+.3f}",
@@ -160,7 +166,7 @@ def _ci_table(bundles: list[RunBundle], pooled) -> Table:
         ])
         color = MUTED if not ci.distinguishable_from_zero else (POSITIVE if ci.ci_low > 0 else NEGATIVE)
         style.append(("TEXTCOLOR", (5, i), (5, i), color))
-        if name == "POOLED":
+        if name.startswith("POOLED"):
             style.append(("FONTNAME", (0, i), (-1, i), "Helvetica-Bold"))
             style.append(("LINEABOVE", (0, i), (-1, i), 1.0, INK))
     table = Table(rows, colWidths=[_CONTENT_WIDTH * w for w in (0.18, 0.1, 0.18, 0.26, 0.1, 0.18)])
@@ -221,11 +227,21 @@ def build_pdf_report(
         "measured, not assumed, on real OHLCV.", st["subtitle"]))
     flow.append(Spacer(1, 1.2 * cm))
     tickers = ", ".join(b.config.ticker for b in bundles)
-    flow.append(Paragraph(
-        f"A walk through what a rules-based backtester actually proves once costs, "
-        f"position sizing and luck are taken seriously. Strategy: "
-        f"<b>{bundles[0].config.strategy.name}</b>. Instruments: <b>{tickers}</b>.",
-        st["body"]))
+    scope = (
+        f"A walk through what a rules-based backtester actually proves once costs, position sizing and "
+        f"luck are taken seriously. It runs two studies through the same engine: an <b>underpowered "
+        f"crossover</b> on {len(bundles)} instruments ({tickers}), where ~40 trades each cannot resolve "
+        f"the question"
+    )
+    if powered is not None and powered.get("pooled") is not None and powered["pooled"].n_trades > 0:
+        scope += (
+            f"; and a <b>powered RSI(2) mean-reversion</b> study over {len(powered['bundles'])} "
+            f"instruments and <b>{powered['pooled'].n_trades:,} trades</b>, where it finally can — and "
+            f"the honest answer, after costs, is no edge."
+        )
+    else:
+        scope += "."
+    flow.append(Paragraph(scope, st["body"]))
     flow.append(Spacer(1, 0.6 * cm))
     flow.append(Paragraph(f"Generated on {generated_on}", st["small"]))
     flow.append(PageBreak())
@@ -255,15 +271,15 @@ def build_pdf_report(
     flow.append(Spacer(1, 0.4 * cm))
     flow.append(Paragraph("2. Cross-instrument scorecard", st["h1"]))
     flow.append(Paragraph(
-        "The same strategy, same parameters, run on every instrument. Where the expectancy is positive "
-        "(after costs) the edge survives; where it is negative the geometry is just folklore on that market.",
-        st["body"]))
+        "The same strategy, same parameters, run on every instrument. The point estimates differ in sign — "
+        "but the \"Verdict\" column withholds judgement, because §3 shows none of them is distinguishable "
+        "from zero at ~40 trades. Read the numbers as hypotheses, not findings.", st["body"]))
     flow.append(Spacer(1, 0.2 * cm))
     flow.append(_comparison_table(bundles))
     flow.append(Spacer(1, 0.4 * cm))
     if "expectancy" in comparison_figures:
         flow.append(_image(comparison_figures["expectancy"]))
-        flow.append(Paragraph("Per-trade expectancy in R, after costs. Green bars have a positive edge.", st["caption"]))
+        flow.append(Paragraph("Per-trade point estimates in R, after costs — not yet confidence-checked (see §3).", st["caption"]))
     if "winrate" in comparison_figures:
         flow.append(_image(comparison_figures["winrate"]))
         flow.append(Paragraph(
@@ -288,7 +304,10 @@ def build_pdf_report(
             flow.append(Spacer(1, 0.2 * cm))
             flow.append(Paragraph(
                 f"⚠ Small sample ({bundle.metrics.n_trades} trades &lt; 100): expectancy is still noise-dominated. "
-                "Treat with skepticism.", st["small"]))
+                "Treat with skepticism. In particular, <b>Sharpe / Sortino and the risk-of-ruin percentages are "
+                "unstable at this n</b> — their decimals carry false precision and should be read as rough "
+                "indications only; the significance and pooling sections (§3-4) are where the conclusions live.",
+                st["small"]))
         flow.append(Spacer(1, 0.3 * cm))
         flow.append(_image(figs.get("equity")))
         flow.append(Paragraph("Realized equity curve, costs included.", st["caption"]))
@@ -298,8 +317,11 @@ def build_pdf_report(
 
         flow.append(Paragraph(f"{idx}.1 Variance — same edge, different luck", st["h2"]))
         flow.append(Paragraph(
-            "Reshuffling the realized trades 5,000 times shows the range of outcomes the same system could have "
-            "produced. The median is the honest expectation; the 5–95% band is the experience you must be able to sit through.",
+            "Resampling the realized trades <i>with replacement</i> 5,000 times shows the range of outcomes the "
+            "same system could have produced. (A plain reshuffle would leave the final equity unchanged under "
+            "fixed-fractional sizing — a product commutes — so resampling with replacement is what disperses the "
+            "destination, which is exactly what the histogram shows.) The median is the honest expectation; the "
+            "5–95% band is the experience you must be able to sit through.",
             st["body"]))
         flow.append(_image(figs.get("mc_fan")))
         flow.append(Paragraph("Monte-Carlo fan: median path and 5–95% band vs the single realized run.", st["caption"]))
@@ -333,6 +355,11 @@ def build_pdf_report(
                 "Expectancy with its 95% bootstrap CI. A grey interval crosses zero — undecidable at this "
                 "sample size.", st["caption"]))
         flow.append(_ci_table(bundles, pooled))
+        flow.append(Paragraph(
+            "† The POOLED row uses the calendar-quarter block bootstrap "
+            f"[{pooled.ci_block.ci_low:+.3f}, {pooled.ci_block.ci_high:+.3f}] (the honest interval, since "
+            f"trades aren't independent), matching the forest plot. The i.i.d. interval would be the "
+            f"tighter [{pooled.ci.ci_low:+.3f}, {pooled.ci.ci_high:+.3f}].", st["small"]))
         flow.append(Spacer(1, 0.3 * cm))
         decisive = sum(1 for b in bundles if b.expectancy_ci.distinguishable_from_zero)
         flow.append(Paragraph(
@@ -398,10 +425,11 @@ def build_pdf_report(
         flow.append(PageBreak())
 
     # --- powered study: enough trades to actually resolve the question ---
+    # Running section number: per-instrument sections used 3..(2+len); the
+    # significance section (if present) is the next; the powered section the next.
     section_n = len(bundles) + 3 + (1 if (pooled is not None and pooled.n_trades > 0) else 0)
     if powered is not None and powered["pooled"].n_trades > 0:
         pp = powered["pooled"]
-        section_n += 1
         figs = powered["figures"]
         flow.append(Paragraph(f"{section_n}. Giving the machine enough trades", st["h1"]))
         flow.append(Paragraph(
@@ -424,8 +452,34 @@ def build_pdf_report(
             "but the small per-trade gains are eaten by spread and slippage. In-sample "
             f"({pp.in_sample_expectancy_r:+.3f}R) and out-of-sample ({pp.out_sample_expectancy_r:+.3f}R) "
             "agree, so this is stable, not a fluke.", st["body"]))
+        flow.append(Spacer(1, 0.2 * cm))
+        flow.append(Paragraph(
+            "<b>A note on the basket.</b> These 20 names are liquid blue chips that exist <i>today</i>, so "
+            "the selection is survivor-biased. Crucially, that bias works <i>in favour</i> of finding an "
+            "edge (survivors are the winners) — and the result is still zero. The null finding is therefore "
+            "conservative: a survivorship-free basket would, if anything, look worse.", st["small"]))
         flow.append(PageBreak())
-        flow.append(Paragraph(f"{section_n}.1 Per-instrument and convergence", st["h2"]))
+
+        curve = powered.get("curve")
+        if curve is not None:
+            flow.append(Paragraph(f"{section_n}.1 Gross vs net — where the edge dies", st["h2"]))
+            be = ("never within the swept range" if curve.breakeven_slippage is None
+                  else f"≈ {curve.breakeven_slippage:.3f} of the candle range")
+            flow.append(Paragraph(
+                "The \"zero after costs\" verdict rests on the cost assumption, so here it is stressed on the "
+                "study that depends on it. With <b>all frictions removed</b>, the pooled signal is "
+                f"<b>{curve.gross_expectancy_r:+.3f}R</b> — genuinely positive. It is the costs that erase it: "
+                f"the pooled edge crosses zero at a break-even slippage of <b>{be}</b>, right around the "
+                "realistic baseline. The reading is precise and practical: the mean-reversion signal is "
+                "<i>real but small</i>, and only a low-cost (institutional) participant operating below that "
+                "break-even would keep it; at retail frictions it nets to nothing.", st["body"]))
+            flow.append(_image(powered["figures"].get("cost_curve")))
+            flow.append(Paragraph(
+                "Pooled expectancy vs slippage. The green star is the gross signal; the edge is positive until "
+                "the break-even slippage, then negative. Costs, not the signal, decide the verdict.", st["caption"]))
+            flow.append(PageBreak())
+
+        flow.append(Paragraph(f"{section_n}.2 Per-instrument and convergence", st["h2"]))
         flow.append(_image(figs.get("forest")))
         flow.append(Paragraph(
             "With ~100+ trades each the intervals tighten; PETR4 even turns significantly negative. The "

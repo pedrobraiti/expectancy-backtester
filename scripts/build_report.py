@@ -17,16 +17,20 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from expectancy.analysis import cost_sweep, pool_trades  # noqa: E402
+from expectancy.analysis import cost_sweep, pool_trades, pooled_cost_curve  # noqa: E402
 from expectancy.reporting import build_pdf_report, generate_figures  # noqa: E402
 from expectancy.reporting.figures import (  # noqa: E402
     fig_cost_sensitivity,
     fig_expectancy_comparison,
     fig_pooled_convergence,
+    fig_powered_cost_curve,
     fig_resolution_comparison,
     fig_significance_forest,
     fig_winrate_vs_breakeven,
 )
+
+# Baseline slippage assumption (matches config.yaml) used to mark the cost curves.
+BASELINE_SLIPPAGE = 0.05
 
 # Slippage levels swept for the cost-sensitivity figure (fraction of candle range).
 SLIPPAGE_LEVELS = (0.0, 0.025, 0.05, 0.10, 0.15, 0.20, 0.30)
@@ -78,6 +82,8 @@ def main() -> None:
             powered_bundles = [b for b in pickle.load(fh) if b.result.n_trades > 0]
         if powered_bundles:
             powered_pooled = pool_trades([b.result for b in powered_bundles], seed=42)
+            powered_curve = pooled_cost_curve(
+                [b.config for b in powered_bundles], SLIPPAGE_LEVELS)
             powered_figures = {
                 "resolution": fig_resolution_comparison(
                     pooled, powered_pooled, FIGURES / "00_resolution_comparison.png"),
@@ -85,14 +91,18 @@ def main() -> None:
                     powered_bundles, powered_pooled, FIGURES / "00_powered_forest.png"),
                 "convergence": fig_pooled_convergence(
                     powered_pooled, FIGURES / "00_powered_convergence.png"),
+                "cost_curve": fig_powered_cost_curve(
+                    powered_curve, BASELINE_SLIPPAGE, FIGURES / "00_powered_cost_curve.png"),
             }
             powered = {
                 "bundles": powered_bundles,
                 "pooled": powered_pooled,
+                "curve": powered_curve,
                 "figures": powered_figures,
             }
             print(f"[report] powered study: {powered_pooled.n_trades} trades, "
-                  f"{len(powered_bundles)} instruments")
+                  f"{len(powered_bundles)} instruments; gross {powered_curve.gross_expectancy_r:+.3f}R, "
+                  f"breakeven slippage {powered_curve.breakeven_slippage}")
 
     build_pdf_report(
         bundles,

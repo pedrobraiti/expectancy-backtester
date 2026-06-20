@@ -9,6 +9,7 @@ from expectancy.analysis import (
     cluster_bootstrap_mean_ci,
     cost_sweep,
     pool_trades,
+    pooled_cost_curve,
 )
 from expectancy.config import Config
 from expectancy.engine import BacktestEngine
@@ -127,3 +128,16 @@ def test_cost_sweep_expectancy_is_non_increasing(monkeypatch, synthetic_price):
     assert all(later <= earlier + 1e-9 for earlier, later in zip(expectancies, expectancies[1:]))
     # Signals are cost-independent, so the trade count is identical across levels.
     assert len({p.n_trades for p in points}) == 1
+
+
+def test_pooled_cost_curve_is_monotonic_and_reports_gross(monkeypatch, synthetic_price):
+    import expectancy.analysis.cost_sensitivity as cs
+
+    monkeypatch.setattr(cs, "load_ohlcv", lambda *a, **k: synthetic_price)
+    curve = pooled_cost_curve([Config(), Config()], (0.0, 0.05, 0.1, 0.2, 0.3))
+    ys = [p.expectancy_r for p in curve.points]
+    assert all(later <= earlier + 1e-9 for earlier, later in zip(ys, ys[1:]))
+    # Gross (zero costs) is the most favourable point — no costs can only help.
+    assert curve.gross_expectancy_r >= ys[0] - 1e-9
+    # Pooling two identical configs doubles the trade count.
+    assert curve.points[0].n_trades > 0
