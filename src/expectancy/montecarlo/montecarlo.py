@@ -4,9 +4,14 @@ A single backtest is one draw from a distribution. The same system, with the
 same expectancy, produces wildly different experiences depending on the *order*
 of wins and losses. This module makes that distribution visible:
 
-* **Bootstrap fan** (§7.1) -- reshuffle the realized R-multiples N times,
-  rebuild the equity curve each time, and report the median path with a 5-95%
-  band plus best/worst cases. The seed is fixed for reproducibility.
+* **Bootstrap fan** (§7.1) -- resample the realized R-multiples *with
+  replacement* N times, rebuild the equity curve each time, and report the median
+  path with a 5-95% band plus best/worst cases. The seed is fixed for
+  reproducibility. Note this is true bootstrap, not a mere reshuffle: under
+  fixed-fractional sizing the final equity is the product of ``(1 + R_i·f)``, and
+  a product is commutative — permuting the *same* trades would change only the
+  drawdown path, never the destination. Resampling with replacement is what
+  disperses the final equity, which is the variance §7.1 asks us to show.
 * **Risk of ruin** (§7.2) -- via the same resampling, estimate the probability of
   hitting an X% drawdown at several per-trade risk levels, exposing how that
   probability explodes non-linearly as risk rises.
@@ -72,7 +77,8 @@ def run_bootstrap(
     seed: int,
     percentiles: tuple[int, ...] = (5, 50, 95),
 ) -> MonteCarloResult:
-    """Reshuffle the realized R-multiples and rebuild the equity curve N times."""
+    """Resample the realized R-multiples with replacement and rebuild the equity
+    curve N times (true bootstrap, not a permutation)."""
     r_multiples = np.asarray(r_multiples, dtype=float)
     n_trades = r_multiples.size
     if n_trades == 0:

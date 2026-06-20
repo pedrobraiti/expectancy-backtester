@@ -53,6 +53,8 @@ def format_report(bundle: RunBundle) -> str:
     add(f"  Payoff (avg win/loss R)   {_pf(m.payoff_ratio):>12}")
     add(_rule())
     add(f"  EXPECTANCY / trade        {_money(m.expectancy_money):>12}  ({m.expectancy_r:+.3f} R)")
+    ci = bundle.expectancy_ci
+    add(f"  95% CI on expectancy R    [{ci.ci_low:+.3f}, {ci.ci_high:+.3f}]  → {ci.verdict}")
     add(f"  Profit factor             {_pf(m.profit_factor):>12}")
     add(_rule())
     add(f"  Breakeven win rate        {m.breakeven_win_rate * 100:6.2f}%   (need this to not lose)")
@@ -96,7 +98,8 @@ def format_report(bundle: RunBundle) -> str:
         add("")
         add(_rule("!"))
         add(f"  ⚠  SMALL SAMPLE: only {m.n_trades} trades (< {MIN_RELIABLE_TRADES}).")
-        add("     Expectancy is still dominated by noise — treat with skepticism.")
+        add("     The expectancy estimate is noise-dominated and its 95% CI above")
+        add(f"     {'straddles zero — a small edge cannot be told apart from none.' if not bundle.expectancy_ci.distinguishable_from_zero else 'is one-sided, but the sample is still thin — stay skeptical.'}")
         add("     One trade means nothing; a hundred start to mean something.")
         add(_rule("!"))
 

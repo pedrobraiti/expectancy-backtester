@@ -136,6 +136,38 @@ def _comparison_table(bundles: list[RunBundle]) -> Table:
     return table
 
 
+def _ci_table(bundles: list[RunBundle], pooled) -> Table:
+    header = ["Instrument", "Trades", "Expectancy R", "95% CI (R)", "P(>0)", "Verdict"]
+    rows = [header]
+    style = [
+        ("BACKGROUND", (0, 0), (-1, 0), INK),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("GRID", (0, 0), (-1, -1), 0.4, MUTED),
+        ("ALIGN", (1, 0), (-2, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]
+    entries = [(b.config.ticker, b.expectancy_ci) for b in bundles]
+    entries.append(("POOLED", pooled.ci))
+    for i, (name, ci) in enumerate(entries, start=1):
+        rows.append([
+            name, f"{ci.n}", f"{ci.mean_r:+.3f}",
+            f"[{ci.ci_low:+.3f}, {ci.ci_high:+.3f}]", f"{ci.prob_positive * 100:.0f}%",
+            ci.verdict,
+        ])
+        color = MUTED if not ci.distinguishable_from_zero else (POSITIVE if ci.ci_low > 0 else NEGATIVE)
+        style.append(("TEXTCOLOR", (5, i), (5, i), color))
+        if name == "POOLED":
+            style.append(("FONTNAME", (0, i), (-1, i), "Helvetica-Bold"))
+            style.append(("LINEABOVE", (0, i), (-1, i), 1.0, INK))
+    table = Table(rows, colWidths=[_CONTENT_WIDTH * w for w in (0.18, 0.1, 0.18, 0.26, 0.1, 0.18)])
+    table.setStyle(TableStyle(style))
+    return table
+
+
 def _recovery_table(bundle: RunBundle) -> Table:
     rows = [["Drawdown suffered", "Gain required to recover"]]
     for loss, gain in bundle.recovery:
@@ -167,6 +199,7 @@ def build_pdf_report(
     out_path: Path,
     *,
     generated_on: str,
+    pooled=None,
 ) -> Path:
     st = _styles()
     out_path = Path(out_path)
@@ -235,6 +268,10 @@ def build_pdf_report(
         flow.append(Paragraph(
             "Actual win rate against the breakeven it must beat. A bar to the right of its grey twin is profitable.",
             st["caption"]))
+    flow.append(Paragraph(
+        "But none of these point estimates is established. With ~40 trades each, the spread of "
+        "expectancies is exactly what pure chance produces even if the true edge were identical (or zero) "
+        "everywhere. The next section tests that honestly.", st["body"]))
     flow.append(PageBreak())
 
     # --- per instrument ---
@@ -280,8 +317,67 @@ def build_pdf_report(
             st["caption"]))
         flow.append(PageBreak())
 
+    # --- significance, pooling, cost ---
+    if pooled is not None and pooled.n_trades > 0:
+        sig_n = len(bundles) + 3
+        flow.append(Paragraph(f"{sig_n}. Is the edge real? Significance, pooling and cost", st["h1"]))
+        flow.append(Paragraph(
+            "A point estimate without an interval is a guess with a confident voice. Bootstrapping the "
+            "per-trade expectancy gives a 95% confidence interval; where it straddles zero, a small edge "
+            "cannot be told apart from no edge at all.", st["body"]))
+        flow.append(Spacer(1, 0.2 * cm))
+        if "forest" in comparison_figures:
+            flow.append(_image(comparison_figures["forest"]))
+            flow.append(Paragraph(
+                "Expectancy with its 95% bootstrap CI. A grey interval crosses zero — undecidable at this "
+                "sample size.", st["caption"]))
+        flow.append(_ci_table(bundles, pooled))
+        flow.append(Spacer(1, 0.3 * cm))
+        decisive = sum(1 for b in bundles if b.expectancy_ci.distinguishable_from_zero)
+        flow.append(Paragraph(
+            f"Of the {len(bundles)} instruments, <b>{len(bundles) - decisive}</b> have a confidence "
+            "interval that includes zero: individually, the data cannot confirm an edge in either "
+            "direction. This is the honest reading the headline scorecard hides.", st["body"]))
+        flow.append(PageBreak())
+
+        flow.append(Paragraph(f"{sig_n}.1 Pooling for power, and an out-of-sample split", st["h2"]))
+        flow.append(Paragraph(
+            f"Because R normalises each trade by its risk, the {pooled.n_trades} trades from all "
+            "instruments can be pooled into one stream — finally crossing the ~100-trade threshold. The "
+            f"pooled expectancy is <b>{pooled.expectancy_r:+.3f}R</b> with a 95% CI of "
+            f"[{pooled.ci.ci_low:+.3f}, {pooled.ci.ci_high:+.3f}] "
+            f"({'still includes zero' if not pooled.ci.distinguishable_from_zero else 'excludes zero'}). "
+            "Splitting the pool chronologically into halves gives a genuine out-of-sample check:",
+            st["body"]))
+        flow.append(Spacer(1, 0.2 * cm))
+        flow.append(Paragraph(
+            f"&bull; In-sample (first {pooled.in_sample_n} trades): <b>{pooled.in_sample_expectancy_r:+.3f}R</b><br/>"
+            f"&bull; Out-of-sample (last {pooled.out_sample_n} trades): <b>{pooled.out_sample_expectancy_r:+.3f}R</b>",
+            st["body"]))
+        flow.append(Spacer(1, 0.3 * cm))
+        if "pooled_convergence" in comparison_figures:
+            flow.append(_image(comparison_figures["pooled_convergence"]))
+            flow.append(Paragraph(
+                "Pooled running expectancy. Even at ~200 trades it is still settling; the shaded zone marks "
+                "the sub-100 region where the estimate is noise.", st["caption"]))
+        flow.append(PageBreak())
+
+        flow.append(Paragraph(f"{sig_n}.2 The edge is thin: cost sensitivity", st["h2"]))
+        flow.append(Paragraph(
+            "Where expectancy is a fraction of an R, the cost assumption is a lever, not a footnote. "
+            "Sweeping the slippage assumption shows how fast each instrument's edge crosses into the red.",
+            st["body"]))
+        if "cost" in comparison_figures:
+            flow.append(_image(comparison_figures["cost"]))
+            flow.append(Paragraph(
+                "Expectancy vs slippage. Lines that dip below the dashed zero line have lost their edge to "
+                "costs — for the marginal names, that happens with a small change in assumptions.",
+                st["caption"]))
+        flow.append(PageBreak())
+
     # --- recovery + disclaimer ---
-    flow.append(Paragraph(f"{len(bundles) + 3}. The recovery math — why protecting capital wins", st["h1"]))
+    recovery_n = len(bundles) + 4 if (pooled is not None and pooled.n_trades > 0) else len(bundles) + 3
+    flow.append(Paragraph(f"{recovery_n}. The recovery math — why protecting capital wins", st["h1"]))
     flow.append(Paragraph(
         "Losses and the gains needed to undo them are asymmetric. A 50% drawdown does not need 50% to recover — "
         "it needs 100%. This is why risk of ruin, not raw return, is the metric that keeps a trader in the game.",

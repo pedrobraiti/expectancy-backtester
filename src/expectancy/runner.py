@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from expectancy.analysis.significance import ExpectancyCI, bootstrap_mean_ci
 from expectancy.config import Config
 from expectancy.data import load_ohlcv
 from expectancy.engine import BacktestEngine, BacktestResult
@@ -35,6 +36,7 @@ class RunBundle:
     montecarlo: MonteCarloResult
     ruin: list[RuinResult]
     recovery: list[tuple[float, float]]
+    expectancy_ci: ExpectancyCI
 
 
 def run_backtest(config: Config, *, use_cache: bool = True) -> RunBundle:
@@ -66,6 +68,7 @@ def run_backtest(config: Config, *, use_cache: bool = True) -> RunBundle:
         seed=mc_cfg.seed,
     )
     recovery = recovery_table()
+    expectancy_ci = bootstrap_mean_ci(r_multiples, n_resamples=10_000, seed=mc_cfg.seed)
 
     return RunBundle(
         config=config,
@@ -74,4 +77,5 @@ def run_backtest(config: Config, *, use_cache: bool = True) -> RunBundle:
         montecarlo=montecarlo,
         ruin=ruin,
         recovery=recovery,
+        expectancy_ci=expectancy_ci,
     )

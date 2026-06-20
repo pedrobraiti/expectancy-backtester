@@ -227,6 +227,76 @@ def fig_expectancy_comparison(bundles: list[RunBundle], path: Path) -> Path:
     return path
 
 
+def fig_significance_forest(bundles: list[RunBundle], pooled, path: Path) -> Path:
+    """Forest plot: expectancy in R with 95% bootstrap CI per instrument + pool."""
+    set_style()
+    labels = [b.config.ticker for b in bundles] + ["POOLED"]
+    means = [b.expectancy_ci.mean_r for b in bundles] + [pooled.expectancy_r]
+    lows = [b.expectancy_ci.ci_low for b in bundles] + [pooled.ci.ci_low]
+    highs = [b.expectancy_ci.ci_high for b in bundles] + [pooled.ci.ci_high]
+
+    y = np.arange(len(labels))[::-1]
+    fig, ax = plt.subplots(figsize=(8.5, 4.6))
+    for yi, mean, lo, hi in zip(y, means, lows, highs):
+        crosses_zero = lo <= 0 <= hi
+        color = MUTED if crosses_zero else (POSITIVE if lo > 0 else NEGATIVE)
+        ax.plot([lo, hi], [yi, yi], color=color, linewidth=2.4, solid_capstyle="round")
+        ax.plot(mean, yi, "o", color=color, markersize=7)
+    ax.axvline(0, color=INK, linewidth=1.2, linestyle="--")
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels)
+    ax.set_xlabel("Per-trade expectancy (R) with 95% bootstrap CI")
+    ax.set_title("Can the edge be told apart from zero? (grey CI = no)")
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+    return path
+
+
+def fig_pooled_convergence(pooled, path: Path) -> Path:
+    """Cumulative expectancy of the pooled trade stream vs trade count."""
+    set_style()
+    r = pooled.r_multiples
+    cumulative = np.cumsum(r) / np.arange(1, r.size + 1)
+
+    fig, ax = plt.subplots(figsize=(9, 4.2))
+    ax.axvspan(0, min(100, r.size), color=NEGATIVE, alpha=0.06)
+    ax.plot(np.arange(1, r.size + 1), cumulative, color=ACCENT, linewidth=1.8)
+    ax.axhline(pooled.expectancy_r, color=POSITIVE, linewidth=1.2, linestyle="--",
+               label=f"Final {pooled.expectancy_r:+.3f} R")
+    ax.axhline(0, color=MUTED, linewidth=1.0, linestyle=":")
+    ax.text(min(100, r.size) / 2, ax.get_ylim()[1], "noise zone (<100)", color=NEGATIVE,
+            fontsize=8, ha="center", va="top")
+    ax.set_title(f"Pooled expectancy across all instruments ({r.size} trades)")
+    ax.set_ylabel("Cumulative expectancy (R)")
+    ax.set_xlabel("Number of trades (ordered by date)")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+    return path
+
+
+def fig_cost_sensitivity(sweeps: dict[str, list], path: Path) -> Path:
+    """Expectancy in R vs slippage assumption, one line per instrument."""
+    set_style()
+    palette = [ACCENT, POSITIVE, NEGATIVE, "#8250df", "#bf8700"]
+    fig, ax = plt.subplots(figsize=(9, 4.6))
+    for (ticker, points), color in zip(sweeps.items(), palette):
+        xs = [p.slippage_frac for p in points]
+        ys = [p.expectancy_r for p in points]
+        ax.plot(xs, ys, marker="o", markersize=4, linewidth=1.6, color=color, label=ticker)
+    ax.axhline(0, color=INK, linewidth=1.2, linestyle="--")
+    ax.set_title("Cost sensitivity: expectancy vs slippage (fraction of candle range)")
+    ax.set_ylabel("Expectancy (R)")
+    ax.set_xlabel("Slippage fraction per fill")
+    ax.legend(title="Instrument")
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+    return path
+
+
 def fig_winrate_vs_breakeven(bundles: list[RunBundle], path: Path) -> Path:
     set_style()
     labels = [b.config.ticker for b in bundles]
