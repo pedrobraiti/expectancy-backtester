@@ -3,12 +3,14 @@
 Plano vivo do projeto. Tarefas e subtarefas, marcadas conforme concluídas.
 
 ## Em progresso
-<vazio — v1.1 entregue>
+<vazio — v1.2 entregue>
 
 ## Próximas
-<vazio> (evoluções futuras possíveis: novas estratégias com mais trades, walk-forward de verdade)
+<vazio> (mudança de jogo real seria de DADOS: estratégia com mais sinais / timeframe menor / cesta
+maior tratada como portfólio — gerar centenas/milhares de trades. O motor já está pronto pra isso.)
 
 ## Concluído
+- [x] v1.2: block bootstrap no pooled (correlação) + comparações múltiplas + QQQ fronteira (41 testes)
 - [x] v1.1: camada analysis/ (CI bootstrap, pooling+OOS, sensibilidade ao custo) após revisão externa
 - [x] Recalibrar conclusão "sem edge" → "underpowered, não distinguível de zero" + corrigir termo bootstrap
 - [x] Publicar repo público: https://github.com/pedrobraiti/expectancy-backtester

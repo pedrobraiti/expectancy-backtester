@@ -46,3 +46,16 @@ slippage). Conclusão recalibrada para "não dá para confirmar nem refutar o ed
 in-sample (−0,14R), então não é overfit clássico — provavelmente exposição de regime pós-2020.
 **Alternativas consideradas:** walk-forward completo — rejeitado por inutilidade com ~40 trades/ativo
 (folds teriam ~10 trades); o split pooled in/out é o OOS honesto possível nesta amostra.
+
+## 2026-06-20 — v1.2: block bootstrap no pooled (2ª rodada de revisão externa)
+**Motivo:** a revisora apontou (corretamente) que o pooling tratava os 201 trades como IID, mas eles
+NÃO são independentes — SPY/QQQ ~0,9 correlacionados, e os 3 BR andam juntos. Bootstrap IID destrói
+a correlação e SUBESTIMA o erro padrão (N efetivo < 201, IC real mais largo). Não muda a conclusão,
+mas o relatório estava sub-reportando a própria incerteza. Adicionado `cluster_bootstrap_mean_ci`
+(reamostra clusters = trimestres-calendário, preservando a dependência; mean exato via somas/contagens
+de clusters). Pooled agora reporta os DOIS ICs: IID [−0,11, +0,30] (otimista) e block [−0,14, +0,34]
+(~20% mais largo, 58 trimestres, honesto). Ambos cruzam zero. Também: nota de comparações múltiplas
+(1−0,95⁵≈23% de achar 1 de 5 a 95% por acaso) e QQQ rotulado como caso de fronteira. BCa documentado
+como refinamento conhecido (não muda o veredito), não implementado.
+**Alternativas consideradas:** block por instrumento (5 clusters) — coarse demais; trimestre-calendário
+captura a correlação temporal e cross-sectional e dá N efetivo razoável (~58).
