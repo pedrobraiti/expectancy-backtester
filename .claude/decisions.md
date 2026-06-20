@@ -32,3 +32,17 @@ brief; README com figuras embutidas + PDF técnico é o padrão profissional esp
 execução na abertura de t+1. Stops/alvos checados barra a barra com prioridade conservadora
 (se o candle toca stop e alvo no mesmo dia, assume o pior caso = stop primeiro).
 **Alternativas consideradas:** execução no mesmo close (infla resultado, proibido pelo brief).
+
+## 2026-06-20 — v1.1: camada `analysis/` (significância, pooling, custo) após revisão externa
+**Motivo:** uma IA revisora apontou (com razão) que (a) a conclusão "não tem edge" não é sustentada
+pela amostra — com ~40 trades o spread de expectância é compatível com ruído sobre edge zero; o
+honesto é "underpowered, não distinguível de zero"; (b) o termo "reshuffle" no README estava errado —
+o código já fazia bootstrap COM REPOSIÇÃO (correto), pois sob sizing fracionário permutar não dispersa
+o destino (produto comutativo); (c) edge fino é frágil a custo; (d) faltava OOS. Adicionado:
+`analysis/significance.py` (CI bootstrap 95% da expectância em R), `analysis/pooled.py` (agrega ~201
+trades de todos os ativos + split temporal in/out-of-sample), `analysis/cost_sensitivity.py` (varre
+slippage). Conclusão recalibrada para "não dá para confirmar nem refutar o edge nesta amostra".
+**Resultado-chave:** TODOS os CIs (inclusive o pooled, [−0,11R, +0,30R]) cruzam zero. OOS (+0,32R) >
+in-sample (−0,14R), então não é overfit clássico — provavelmente exposição de regime pós-2020.
+**Alternativas consideradas:** walk-forward completo — rejeitado por inutilidade com ~40 trades/ativo
+(folds teriam ~10 trades); o split pooled in/out é o OOS honesto possível nesta amostra.

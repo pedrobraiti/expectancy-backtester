@@ -4,13 +4,14 @@
 > de forma relativamente detalhada. É o PRIMEIRO arquivo que a próxima sessão lê.
 > Mantenha-o vivo e específico — detalhado o bastante para retomar sem reconstruir o raciocínio.
 
-**Última atualização:** 2026-06-20 — projeto ENTREGUE (v1.0) e publicado.
+**Última atualização:** 2026-06-20 — v1.1 ENTREGUE (significância/pooling/custo) após revisão externa.
 
 ## Onde parei
 Projeto completo e publicado: https://github.com/pedrobraiti/expectancy-backtester (público).
-Núcleo, 30 testes, reporting (terminal + 32 figuras + PDF de 19 páginas), pipeline, README
-profissional em inglês e o brief de referência — tudo commitado e no GitHub (branch `master`).
-Não há tarefa pendente.
+v1.0 = núcleo + reporting + estudo. v1.1 (esta sessão) adicionou a camada `analysis/` respondendo a
+uma revisão externa: CI bootstrap da expectância, pooling de ~201 trades + split OOS temporal, e
+sensibilidade ao custo. 37 testes, PDF de 22 páginas, README recalibrado. Falta só commitar/pushar a
+v1.1 (em andamento) — verificar se já foi feito com `git log --oneline -5` e `git status`.
 
 ## Contexto mental
 Backtester de expectância fiel ao `BACKTEST_BRIEF.md`. Estudo real (2010–2026, 0,5% risco/trade,

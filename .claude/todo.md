@@ -3,12 +3,14 @@
 Plano vivo do projeto. Tarefas e subtarefas, marcadas conforme concluídas.
 
 ## Em progresso
-<vazio — projeto entregue v1.0>
+<vazio — v1.1 entregue>
 
 ## Próximas
-<vazio>
+<vazio> (evoluções futuras possíveis: novas estratégias com mais trades, walk-forward de verdade)
 
 ## Concluído
+- [x] v1.1: camada analysis/ (CI bootstrap, pooling+OOS, sensibilidade ao custo) após revisão externa
+- [x] Recalibrar conclusão "sem edge" → "underpowered, não distinguível de zero" + corrigir termo bootstrap
 - [x] Publicar repo público: https://github.com/pedrobraiti/expectancy-backtester
 - [x] README profissional em inglês com resultados reais e figuras embutidas
 - [x] Setup inicial do projeto (.claude/, CLAUDE.md, git, pyproject, venv, requirements)
