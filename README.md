@@ -20,28 +20,28 @@ instruments and reports the answer without spin.
 
 ## TL;DR
 
-- 🧮 **The example strategy (MA20×MA50 crossover) has no robust edge.** After costs, its per-trade
+- **The example strategy (MA20×MA50 crossover) has no robust edge.** After costs, its per-trade
   expectancy *flips sign across instruments*: QQQ **+0.42R** (Profit Factor 1.83) and ITUB4 **+0.22R**
   (PF 1.40) look good, while SPY (**−0.09R**) and PETR4 (**−0.11R**) lose. That spread, from the same
   rules, is the headline result.
-- 🔬 **Every instrument produced fewer than 100 trades** (37–43 over 16 years), so the backtester
+- **Every instrument produced fewer than 100 trades** (37–43 over 16 years), so the backtester
   **flags all of them as noise-dominated**. A crossover on daily bars simply does not trade often
   enough for its expectancy to be trustworthy — which is exactly the "one trade means nothing" lesson,
   made concrete.
-- 🎲 **Variance dominates the experience.** Reshuffling QQQ's 37 trades 5,000 times, the outcome runs
+- **Variance dominates the experience.** Reshuffling QQQ's 37 trades 5,000 times, the outcome runs
   from a **4.7% chance of ending in the red** (despite a positive edge) to roughly **+17% at the 95th
   percentile** — same trades, same expectancy, a very different ride depending only on their order.
-- 💀 **Risk of ruin explodes non-linearly with bet size.** At ≤ 2% risk per trade the probability of a
+- **Risk of ruin explodes non-linearly with bet size.** At ≤ 2% risk per trade the probability of a
   50% drawdown is ~0% everywhere; crank it to **5% per trade** and it jumps to **37–38%** on the
   negative-edge names. The risk dial, not the entry signal, is what ends accounts.
-- 🛟 **The recovery math is unforgiving:** a 50% drawdown needs a **100%** gain to undo. This is why the
+- **The recovery math is unforgiving:** a 50% drawdown needs a **100%** gain to undo. This is why the
   system measures *survival*, not just return.
 
 > **One-sentence verdict:** the value here is not the strategy — it is a backtester honest enough to
 > prove the strategy has no edge, and to show why variance and position sizing matter more than the
 > entry rule.
 
-📄 **Full 19-page technical report:** [`output/expectancy_study.pdf`](output/expectancy_study.pdf)
+**Full 19-page technical report:** [`output/expectancy_study.pdf`](output/expectancy_study.pdf)
 
 ---
 
