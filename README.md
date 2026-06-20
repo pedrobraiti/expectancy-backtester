@@ -41,8 +41,9 @@ instruments and reports the answer without spin.
 - **Give the machine enough trades and it resolves the question.** Swapping in a *frequent* strategy
   (RSI(2) mean-reversion) over a 20-instrument basket yields **2,313 trades** — and the pooled CI
   collapses from 0.48R wide (undecidable) to **[−0.04R, +0.03R]**, a tight band on zero. The verdict
-  sharpens from "we can't tell" to **"the edge is, to a tight tolerance, zero after costs"** — same
-  engine, only the sample changed.
+  sharpens from "we can't tell" to **"zero edge after costs"** — same engine, only the sample changed.
+  And the richest detail: the **gross signal is genuinely +0.056R**; it is *costs* that erase it, dying
+  at a break-even slippage of ≈0.045 — a real but small edge only a low-cost desk could keep.
 
 > **One-sentence verdict:** the value here is not the strategy — it is a backtester honest enough to
 > say "underpowered, can't tell" on 40 trades and "precisely zero edge after costs" on 2,300, and to
@@ -116,17 +117,19 @@ bars on it.
 
 ![Per-trade expectancy by instrument](output/figures/00_expectancy_comparison.png)
 
-| Instrument | Trades | Win rate | Expectancy (R) | Expectancy ($) | Profit factor | Max DD | Edge? |
+| Instrument | Trades | Win rate | Expectancy (R) | Expectancy ($) | Profit factor | Max DD | Verdict (§3) |
 |---|---|---|---|---|---|---|---|
-| SPY | 39 | 30.8% | **−0.088** | −4.61 | 0.87 | 5.6% | ❌ |
-| QQQ | 37 | 51.4% | **+0.422** | +21.63 | 1.83 | 1.9% | ✅ |
-| PETR4.SA | 42 | 35.7% | **−0.109** | −5.63 | 0.84 | 3.7% | ❌ |
-| VALE3.SA | 43 | 41.9% | **+0.039** | +1.70 | 1.06 | 3.6% | ⚠️ marginal |
-| ITUB4.SA | 40 | 47.5% | **+0.222** | +11.09 | 1.40 | 4.7% | ✅ |
+| SPY | 39 | 30.8% | **−0.088** | −4.61 | 0.87 | 5.6% | unconfirmed |
+| QQQ | 37 | 51.4% | **+0.422** | +21.63 | 1.83 | 1.9% | unconfirmed |
+| PETR4.SA | 42 | 35.7% | **−0.109** | −5.63 | 0.84 | 3.7% | unconfirmed |
+| VALE3.SA | 43 | 41.9% | **+0.039** | +1.70 | 1.06 | 3.6% | unconfirmed |
+| ITUB4.SA | 40 | 47.5% | **+0.222** | +11.09 | 1.40 | 4.7% | unconfirmed |
 
-*Expectancy after costs. Three positive, two negative — but **every sample is under 100 trades**, so
-read these as hypotheses, not facts. The expectancy sanity check (`formula == realized mean`) passes
-for all five, confirming the arithmetic is right even where the conclusion is undecidable.*
+*Expectancy after costs. The point estimates are positive on three names and negative on two — but the
+"Verdict" column deliberately does **not** call any of them an edge, because (as §3 shows) every
+confidence interval straddles zero. Reporting "edge: yes" off the sign of a 40-trade mean would be the
+exact mistake this study exists to debunk. The expectancy sanity check (`formula == realized mean`)
+passes for all five: the arithmetic is right even where the conclusion is undecidable.*
 
 ### 2. Win rate vs the breakeven it must clear
 
@@ -244,9 +247,28 @@ stable, not a fluke.
 
 ![Pooled convergence over 2,313 trades](output/figures/00_powered_convergence.png)
 
+**Gross vs net — where the edge actually dies.** The "zero after costs" verdict rests on one cost
+assumption, so it is stressed on the study that depends on it (the cost sweep, unlike v1, is run on the
+*powered* basket). With **all frictions removed the pooled signal is +0.056R** — genuinely positive. It
+is the costs that erase it: the pooled edge crosses zero at a **break-even slippage of ≈ 0.045** of the
+candle range, right around the realistic baseline.
+
+![Powered study cost curve](output/figures/00_powered_cost_curve.png)
+
+*The reading is precise and practical: the mean-reversion signal is **real but small**, and only a
+low-cost (e.g. institutional) participant operating below the break-even slippage would keep it; at
+retail frictions it nets to nothing. This is the richest result in the project — not "no signal," but
+"a real signal that costs eat" — and it only becomes visible once the sample is large enough to measure
+it.*
+
+> **A note on the basket.** These 20 names are liquid blue chips that exist *today*, so the selection is
+> survivor-biased. Crucially that bias works *in favour* of finding an edge (survivors are the winners) —
+> and the result is still ~zero net. The null finding is therefore conservative: a survivorship-free
+> basket would, if anything, look worse.
+
 *This is the lesson the whole project was built to deliver: the backtester resolves the question the
 moment it is given enough trades — and the honest answer for this textbook strategy, after costs, is no
-edge. Exactly what efficient-market priors predict, now measured rather than asserted.*
+net edge. Exactly what efficient-market priors predict, now measured rather than asserted.*
 
 ### 7. Variance changes everything
 
@@ -308,11 +330,12 @@ is the whole argument for sizing small.*
 2. **A moving-average crossover on daily bars is structurally underpowered.** It fires ~2.5 times a
    year, so even 16 years cannot generate the trades needed to validate or invalidate it. That — more
    than the strategy being "good" or "bad" — is the concrete lesson here.
-3. **Given power, the question resolves — and the answer is still no edge.** A frequent strategy
+3. **Given power, the question resolves — into a precise gross-vs-net result.** A frequent strategy
    (RSI(2) reversion) over a 20-name basket produces 2,313 trades, and the pooled CI tightens to
-   [−0.04R, +0.03R]: a precise zero after costs, in- and out-of-sample agreeing. The bottleneck was
-   never the engine; it was the sample. Swap the setup, not the motor, and the machine delivers a
-   verdict.
+   [−0.04R, +0.03R]: a precise zero *after costs*, in- and out-of-sample agreeing. But the gross signal
+   is genuinely **+0.056R** — the edge is real and small, and costs (break-even slippage ≈0.045) are what
+   erase it. The bottleneck was never the engine; it was the sample. Swap the setup, not the motor, and
+   the machine delivers a verdict — and even tells you who could still trade it.
 4. **Variance and position sizing dominate the outcome.** Bootstrapped, the same trades give very
    different equity paths, and the risk dial controls survival far more than the entry rule does. The
    thin edge is also fragile to the cost assumption.

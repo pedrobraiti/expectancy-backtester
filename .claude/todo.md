@@ -3,13 +3,16 @@
 Plano vivo do projeto. Tarefas e subtarefas, marcadas conforme concluídas.
 
 ## Em progresso
-<vazio — v2.0 entregue>
+<vazio — v2.1 entregue (ajustes finais da 3ª revisão)>
 
 ## Próximas
-<vazio> (refinamentos possíveis: BCa bootstrap; intraday se houver fonte de dados; walk-forward com
-reotimização de parâmetros agora que há amostra)
+<vazio> (refinamentos opcionais: BCa bootstrap; intraday se houver fonte; walk-forward com reotimização)
 
 ## Concluído
+- [x] v2.1: 3ª revisão — cost sweep pooled no estudo POWERED (gross +0,056R, breakeven slippage ~0,045),
+      scorecard "Edge?"→"unconfirmed" (parar de contradizer significância), reshuffle→resample no PDF,
+      IC pooled da tabela = block, nota de survivorship, instabilidade Sharpe/ruína a n<100, numeração
+      de seções e capa corrigidas, glitch do ruin chart. 48 testes.
 - [x] v2.0: estratégia RSI(2) reversão + saída por sinal no motor + estudo powered (20 ativos, 2313
       trades) → IC pooled colapsa pra [−0,04,+0,03], resolve a pergunta (~0 edge após custos). 47 testes
 - [x] v1.2: block bootstrap no pooled (correlação) + comparações múltiplas + QQQ fronteira (41 testes)

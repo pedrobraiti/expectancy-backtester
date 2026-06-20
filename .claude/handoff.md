@@ -4,15 +4,16 @@
 > de forma relativamente detalhada. É o PRIMEIRO arquivo que a próxima sessão lê.
 > Mantenha-o vivo e específico — detalhado o bastante para retomar sem reconstruir o raciocínio.
 
-**Última atualização:** 2026-06-20 — v2.0 ENTREGUE (estudo powered) após escolha do usuário.
+**Última atualização:** 2026-06-20 — v2.1 ENTREGUE (ajustes finais da 3ª revisão).
 
 ## Onde parei
 Projeto completo e publicado: https://github.com/pedrobraiti/expectancy-backtester (público).
-v1.0 núcleo; v1.1 analysis/; v1.2 block bootstrap; **v2.0 (esta sessão) = estudo "powered"**: o usuário
-escolheu dar trades suficientes pra máquina resolver. Adicionei saída por sinal no motor (coluna `exit`
-+ max_holding, backward-compatible), indicador RSI, estratégia `rsi_reversion` e `run_powered_study.py`
-(20 ativos). Resultado: 2313 trades, pooled CI colapsa pra [−0,04,+0,03] → resolve em "edge ~0 após
-custos". 47 testes, PDF 25 páginas, README com seção 6 nova. Falta commitar/pushar v2.0 (em andamento).
+v1.0 núcleo; v1.1 analysis/; v1.2 block bootstrap; v2.0 estudo powered (RSI, 2313 trades, resolve em
+"edge ~0"). **v2.1 (esta sessão) = ajustes finais da 3ª revisão**: cost sweep pooled NO ESTUDO POWERED
+→ achado gross-vs-net (gross +0,056R, breakeven slippage ~0,045: sinal real mas pequeno, só baixo custo
+extrai); scorecard "Edge?"→"unconfirmed"; reshuffle→resample no PDF; IC pooled da tabela = block; nota
+survivorship; Sharpe/ruína marcados instáveis a n<100; numeração de seções e capa corrigidas; glitch do
+ruin chart. 48 testes, PDF 26 páginas. Falta commitar/pushar v2.1 (em andamento).
 **ATENÇÃO push:** o remoto pode ter commits do usuário (ele já editou o README no GitHub — removeu
 emojis decorativos; ver [[readme-no-decorative-emojis]]). Se `git push` falhar, `git fetch` + rebase
 preservando a edição dele. NÃO usar emojis decorativos no README.

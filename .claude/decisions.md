@@ -76,3 +76,17 @@ o ganho. IS (−0,001) ≈ OOS (−0,009). PETR4 vira significativamente negativ
 o setup, não o motor.
 **Alternativas consideradas:** MA mais rápida (mais trades mas ainda trend-following / provável ~0);
 intraday (Yahoo só dá ~2 anos de dados intraday, inviável p/ 16 anos).
+
+## 2026-06-20 — v2.1: ajustes finais da 3ª revisão externa
+**Motivo:** revisão apontou itens corretos. Implementado: (1) **cost sweep pooled no estudo POWERED**
+(o que dependia de custo era a tese do RSI, não o crossover) → achado gross-vs-net: **gross +0,056R**,
+breakeven slippage **~0,045**; sinal é REAL mas pequeno, só um trader de baixo custo extrai. (2) Coluna
+"Edge? YES/no" do scorecard contradizia a própria conclusão de significância (usava sinal do ponto
+estimado) → trocada por "unconfirmed"/veredito do CI (README e PDF). (3) PDF tinha regredido pra
+"Reshuffling" nas legendas de variância → "resampling with replacement" + nota didática. (4) IC pooled
+da TABELA divergia do forest (tabela IID, forest block) → tabela agora usa block, com nota do IID.
+(5) Nota de **survivorship** (cesta = sobreviventes de hoje; viés joga A FAVOR de achar edge, logo nulo
+é conservador). (6) Sharpe/Sortino e % de ruína marcados como instáveis a n<100. (7) Numeração de
+seções (pulava 9 por double-increment) e capa (só citava crossover) corrigidas; glitch do label do ruin
+chart (headroom no ylim).
+**Alternativas consideradas:** remover Sharpe/ruína de vez — preferi manter com aviso de instabilidade.
