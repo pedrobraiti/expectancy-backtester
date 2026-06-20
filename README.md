@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-37%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-41%20passing-brightgreen.svg)](tests/)
 [![Data](https://img.shields.io/badge/data-Yahoo%20Finance-orange.svg)](https://finance.yahoo.com/)
 [![Report](https://img.shields.io/badge/report-22--page%20PDF-red.svg)](output/expectancy_study.pdf)
 
@@ -25,9 +25,10 @@ instruments and reports the answer without spin.
   **−0.09R**, PETR4 **−0.11R** — but with only ~40 trades each, that spread is exactly what pure chance
   produces even if the true edge were identical (or zero) everywhere.
 - **Statistically, every instrument is a coin-flip.** The **95% bootstrap confidence interval on
-  expectancy straddles zero for all five** — and even **pooling all 201 trades** into one stream leaves
-  it at **[−0.11R, +0.30R]**, still including zero (P(edge > 0) ≈ 81%, short of the 95% bar). The honest
-  verdict is not "no edge" but **"underpowered — a small edge cannot be told apart from none."**
+  expectancy straddles zero for all five** — and even **pooling all 201 trades** (with a correlation-
+  aware *block* bootstrap) leaves it at **[−0.14R, +0.34R]**, still including zero (P(edge > 0) ≈ 77%).
+  The honest verdict is not "no edge" but **"underpowered — a small edge cannot be told apart from
+  none."**
 - **Variance dominates the experience.** Bootstrapping QQQ's trades 5,000 times, the outcome runs
   from a **4.7% chance of ending in the red** (despite a positive point estimate) to ~**+17% at the
   95th percentile** — same trades, same expectancy, a very different ride from luck of sequence alone.
@@ -93,7 +94,7 @@ Everything downstream of the raw OHLCV is computed, never downloaded.
 | **Sizing** | Fixed-fractional: each trade risks **0.5% of equity**; a wider stop ⇒ a smaller position |
 | **No lookahead** | A signal at the close of bar *t* is executed at the **open of bar t+1**, never at its own close |
 | **Variance/ruin** | 5,000-sample bootstrap (with replacement) with a **fixed seed** (42) for reproducibility |
-| **Significance** | 10,000-sample bootstrap **95% CI** on expectancy; **pooling** to ~200 trades; chronological **out-of-sample** split; **cost-sensitivity** sweep |
+| **Significance** | 10,000-sample bootstrap **95% CI** on expectancy; **pooling** to ~200 trades with a correlation-aware **block bootstrap**; chronological **out-of-sample** split; **cost-sensitivity** sweep |
 
 All figures and tables below come straight from the pipeline (`scripts/run_study.py` →
 `scripts/build_report.py`); nothing is hand-edited.
@@ -150,10 +151,15 @@ edge cannot be told apart from no edge.
 | VALE3.SA | 43 | +0.039 | [−0.37, +0.47] | 57% | indistinguishable from zero |
 | ITUB4.SA | 40 | +0.222 | [−0.20, +0.65] | 85% | indistinguishable from zero |
 
-*Every single interval straddles zero (all grey in the forest plot). Even QQQ — the best-looking name —
-only reaches 95% probability of a positive mean, and its interval still includes zero. At ~40 trades,
-the data cannot confirm an edge in **any** direction. This is the result the headline scorecard hides,
-and the honest centre of the whole study.*
+*Every single interval straddles zero (all grey in the forest plot). At ~40 trades, the data cannot
+confirm an edge in **any** direction — the result the headline scorecard hides, and the honest centre of
+the whole study.*
+
+Two caveats make it even more sober. **QQQ sits exactly on the boundary** (P(edge > 0) = 95%), so
+calling it positive would be a one-tailed knife-edge, not a finding. And **multiple comparisons** bite:
+across five instruments, the chance that at least one clears a 95% one-sided bar by luck alone is
+1 − 0.95⁵ ≈ **23%**. Finding one borderline name among five is roughly what pure noise predicts — a
+reason *not* to get excited about QQQ.
 
 ### 4. Pooling for power & an out-of-sample split
 
@@ -163,8 +169,23 @@ threshold where expectancy begins to settle.
 
 ![Pooled expectancy convergence](output/figures/00_pooled_convergence.png)
 
-The pooled expectancy is **+0.090R**, with a 95% CI of **[−0.11R, +0.30R]** — *still including zero*
-(P(edge > 0) ≈ 81%). Splitting the pool chronologically gives a genuine out-of-sample check:
+The pooled expectancy is **+0.090R** — but those 201 trades are **not independent**. US indices are
+~0.9 correlated and the Brazilian names move together, so trades firing in the same period carry
+redundant information. A plain i.i.d. bootstrap shreds that correlation and reports a falsely tight
+interval; a **calendar-quarter block bootstrap** (resampling whole quarters, preserving the dependence)
+gives the honest one:
+
+| Pooled 95% CI | Interval (R) | P(edge > 0) | Reads as |
+|---|---|---|---|
+| i.i.d. bootstrap (optimistic) | [−0.11, +0.30] | 81% | includes zero |
+| **block bootstrap** (58 quarters, honest) | **[−0.14, +0.34]** | 77% | **includes zero** |
+
+*The honest interval is ~20% wider — the effective sample is closer to the ~58 quarters than to 201
+trades. The conclusion does not change (zero is still inside), but the report no longer understates its
+own uncertainty. (A bias-corrected **BCa** bootstrap would refine the skew of these intervals, but since
+the percentile and block versions already agree on the verdict, it would not change it.)*
+
+Splitting the pool chronologically gives a genuine out-of-sample check:
 
 | Pool split | Trades | Expectancy (R) |
 |---|---|---|
@@ -242,9 +263,10 @@ is the whole argument for sizing small.*
 ## Conclusions
 
 1. **The strategy's edge cannot be confirmed — or ruled out — at this sample size.** Every per-trade
-   expectancy CI straddles zero, and so does the pooled one (201 trades, [−0.11R, +0.30R]). The honest
-   statement is "underpowered," not "no edge." With ~40 trades per instrument, the eye-catching spread
-   from −0.11R to +0.42R is well within what noise alone would produce over a common true edge.
+   expectancy CI straddles zero, and so does the pooled one even after a correlation-aware block
+   bootstrap (201 trades, [−0.14R, +0.34R]). The honest statement is "underpowered," not "no edge."
+   With ~40 trades per instrument, the eye-catching spread from −0.11R to +0.42R is well within what
+   noise alone would produce over a common true edge.
 2. **A moving-average crossover on daily bars is structurally underpowered.** It fires ~2.5 times a
    year, so even 16 years cannot generate the trades needed to validate or invalidate it. That — more
    than the strategy being "good" or "bad" — is the concrete lesson here.
@@ -273,7 +295,7 @@ py -3.12 -m venv .venv
 pip install -r requirements.txt
 pip install -e .
 
-pytest -q                               # 37 tests
+pytest -q                               # 41 tests
 python main.py                          # single instrument from config.yaml (full scorecard + figures)
 python scripts/run_study.py             # downloads + caches data, runs the US+BR basket
 python scripts/build_report.py          # renders output/figures/*.png and the PDF report
@@ -307,7 +329,7 @@ src/expectancy/
   runner.py        wires the layers into one backtest run
 scripts/           run_study.py (basket + cache) · build_report.py (figures + PDF)
 main.py            single-instrument entry point (the brief's acceptance criterion)
-tests/             37 tests: lookahead, R-multiples, expectancy sanity, sizing, Monte-Carlo, significance
+tests/             41 tests: lookahead, R-multiples, expectancy sanity, sizing, Monte-Carlo, significance
 output/figures/    the figures used in the report and this README (committed)
 ```
 
