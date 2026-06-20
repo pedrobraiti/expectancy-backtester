@@ -27,3 +27,6 @@ Thumbs.db
 
 # Hook marker
 .claude/.last-stop-signature
+
+# Internal prompt notes (not part of the public project)
+Prompt_Claude_Code.txt
